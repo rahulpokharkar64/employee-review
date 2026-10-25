@@ -50,3 +50,13 @@ def test_unknown_employee_or_period_is_404(client):
 ])
 def test_invalid_input_is_422(client, change):
     assert client.post("/api/reviews", json={**BODY, **change}).status_code == 422
+
+def test_health_ok(client, monkeypatch):
+    monkeypatch.setattr(main, "check_database", lambda: True)
+    response = client.get("/api/health")
+    assert response.status_code == 200 and response.json() == {"status": "ok", "database": "up"}
+
+def test_health_database_down_is_503(client, monkeypatch):
+    monkeypatch.setattr(main, "check_database", lambda: False)
+    response = client.get("/api/health")
+    assert response.status_code == 503 and response.json()["database"] == "down"

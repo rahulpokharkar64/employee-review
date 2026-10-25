@@ -1,8 +1,8 @@
 import os
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from models import Review, ReviewCreate
-from repository import get_employee_by_id, get_period_by_id, insert_review
+from repository import check_database, get_employee_by_id, get_period_by_id, insert_review
 from service import calculate_average, period_accepts_reviews
 
 app = FastAPI(
@@ -20,6 +20,14 @@ app.add_middleware(
 )
 
 api = APIRouter(prefix="/api")
+
+@api.get("/health")
+def health(response: Response):
+    """Connectivity check. 200 when the API and the database are reachable, 503 when the database is not."""
+    if check_database():
+        return {"status": "ok", "database": "up"}
+    response.status_code = 503
+    return {"status": "unavailable", "database": "down"}
 
 @api.post("/reviews", status_code=201, response_model=Review)
 def create_review(payload: ReviewCreate):

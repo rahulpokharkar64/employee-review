@@ -6,6 +6,9 @@ FastAPI + PostgreSQL (psycopg 3). Base path `/api`. The tables (`employees`, `re
 `database.py` (pool) / `repository.py` (SQL) / `service.py` (rules) / `models.py` (Pydantic) / `main.py` (routes).
 
 ## Implemented
+### `GET /api/health`
+Connectivity check: runs `SELECT 1`. `200 {"status":"ok","database":"up"}`, or `503 {"status":"unavailable","database":"down"}` when the database cannot be reached.
+
 ### `POST /api/reviews`
 Body: `employee_id`, `period_id` (database ids), `quality_rating`, `delivery_rating`, `teamwork_rating` (1-5), `comments` (required).
 The server sets `id`, `average_rating = (q + d + t) / 3` (2 decimals) and `created_at`.

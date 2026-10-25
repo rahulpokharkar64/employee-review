@@ -1,6 +1,15 @@
 from psycopg.rows import dict_row
 from database import get_connection
 
+def check_database(timeout: float = 3) -> bool:
+    """True when a connection can be opened and a trivial query runs; False on any database error or after `timeout` seconds."""
+    try:
+        with get_connection(timeout=timeout) as conn, conn.cursor() as cursor:
+            cursor.execute("SELECT 1;")
+            return cursor.fetchone() == (1,)
+    except Exception:
+        return False
+
 def get_employee_by_id(employee_id: int):
     with get_connection() as conn, conn.cursor(row_factory=dict_row) as cursor:
         cursor.execute("SELECT * FROM employees WHERE id = %s;", (employee_id,))
