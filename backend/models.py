@@ -1,5 +1,5 @@
-from datetime import datetime
-from typing import Annotated, Literal
+from datetime import date, datetime
+from typing import Annotated, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 Rating = Annotated[int, Field(ge=1, le=5)]
@@ -15,6 +15,22 @@ class ReviewCreate(BaseModel):
     delivery_rating: Rating
     teamwork_rating: Rating
     comments: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+
+class Employee(BaseModel):
+    """id is the numeric database key; employee_id is the displayed employee code."""
+    id: int
+    employee_id: str
+    name: str
+    department: Optional[str] = None
+    email: Optional[str] = None
+    status: str
+
+class ReviewPeriod(BaseModel):
+    id: int
+    name: str
+    start_date: date
+    end_date: date
+    status: Literal["Open", "Closed"]
 
 class Review(BaseModel):
     """A stored review with the employee and period labels the register UI shows."""
