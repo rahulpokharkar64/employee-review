@@ -96,15 +96,15 @@ def test_list_review_periods_filter(client, monkeypatch):
 def test_list_reviews_filters_and_status_label(client, monkeypatch):
     seen = {}
     monkeypatch.setattr(main, "list_reviews", lambda **kw: seen.update(kw) or [REVIEW_ROW])
-    response = client.get("/api/reviews?employee_id=1&period_id=3")
-    assert seen == {"employee_id": 1, "period_id": 3}
+    response = client.get("/api/reviews?employee_id=EMP101&period_id=3")
+    assert seen == {"employee_code": "EMP101", "period_id": 3}
     assert response.json()[0]["status"] == "Completed"
 
 def test_list_reviews_empty_is_empty_array(client, monkeypatch):
     monkeypatch.setattr(main, "list_reviews", lambda **kw: [])
     assert client.get("/api/reviews").json() == []
 
-@pytest.mark.parametrize("query", ["employee_id=abc", "period_id=0", "employee_id=-1"])
+@pytest.mark.parametrize("query", ["period_id=0", "period_id=abc", "employee_id="])
 def test_list_reviews_invalid_filter_is_422(client, query):
     assert client.get(f"/api/reviews?{query}").status_code == 422
 

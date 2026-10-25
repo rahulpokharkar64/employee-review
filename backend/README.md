@@ -15,7 +15,7 @@ Connectivity check: runs `SELECT 1`. `200 {"status":"ok","database":"up"}`, or `
 | `GET /api/employees` | optional `?status=Active\|Inactive` |
 | `GET /api/employees/search` | `employee_id` (code, e.g. `EMP101`, exact, case-insensitive) and/or `name` (part of the name, case-insensitive); both combine with AND; 422 when neither is given; `[]` when nothing matches. Not in the OpenAPI contract yet. |
 | `GET /api/review-periods` | optional `?status=Open\|Closed`, newest first |
-| `GET /api/reviews` | optional `employee_id`, `period_id` (numeric DB keys, AND); newest first; `[]` when nothing matches; no pagination in the contract |
+| `GET /api/reviews` | optional `employee_id` (employee code, e.g. `EMP101`, case-insensitive) and `period_id` (numeric DB key), combined with AND; newest first; `[]` when nothing matches; no pagination in the contract. Differs from the contract, which takes the numeric key. |
 | `GET /api/reviews/{id}` | 404 `REVIEW_NOT_FOUND`; 422 for a non-integer id |
 
 Review rows include `employee_code`, `employee_name`, `period_name` and `status: "Completed"` (derived). A NULL `comments` in the database is returned as `""`.
