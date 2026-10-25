@@ -1,13 +1,13 @@
 import os
 from typing import List, Literal, Optional
-from fastapi import APIRouter, FastAPI, Path, Query, Request, Response
+from fastapi import APIRouter, FastAPI, HTTPException, Path, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from errors import ApiError
 from models import Employee, ErrorResponse, Review, ReviewCreate, ReviewPeriod
 from repository import (
     check_database, get_employee_by_id, get_employees, get_period_by_id, get_review_by_id,
-    get_review_periods, insert_review, list_reviews,
+    get_review_periods, insert_review, list_reviews, search_employees,
 )
 from service import calculate_average, period_accepts_reviews
 
@@ -47,6 +47,23 @@ def health(response: Response):
 def list_employees(status: Optional[Literal["Active", "Inactive"]] = None):
     """Employee master records for the review form. Pass status=Active to return only active employees."""
     return get_employees(status)
+
+@api.get(
+    "/employees/search",
+    response_model=List[Employee],
+    responses={422: {"description": "No filter given"}},
+)
+def search_employees_endpoint(
+    employee_id: Optional[str] = Query(default=None, min_length=1, max_length=20, description="Employee code, e.g. EMP101 (case-insensitive, exact)"),
+    name: Optional[str] = Query(default=None, min_length=1, max_length=100, description="Part of the employee name (case-insensitive)"),
+):
+    """
+    Finds employees by code, by name, or both (AND). At least one of employee_id or name is required (422 otherwise).
+    Returns [] when nothing matches.
+    """
+    if employee_id is None and name is None:
+        raise HTTPException(status_code=422, detail="Provide at least one filter: employee_id or name.")
+    return search_employees(employee_code=employee_id, name=name)
 
 @api.get("/review-periods", response_model=List[ReviewPeriod])
 def list_review_periods(status: Optional[Literal["Open", "Closed"]] = None):

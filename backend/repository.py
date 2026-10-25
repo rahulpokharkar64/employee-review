@@ -30,6 +30,28 @@ def get_employees(status=None):
         )
         return cursor.fetchall()
 
+def _escape_like(value: str) -> str:
+    """Escapes the LIKE wildcards so a name containing % or _ is matched literally."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+def search_employees(employee_code=None, name=None):
+    """
+    Employees matching every filter given (AND). employee_code matches the EMP101-style code exactly;
+    name matches any part of the name. Both are case-insensitive. Filters left as None are ignored.
+    """
+    conditions, params = [], []
+    if employee_code is not None:
+        conditions.append("UPPER(employee_id) = UPPER(%s)")
+        params.append(employee_code)
+    if name is not None:
+        conditions.append("name ILIKE %s ESCAPE '\\'")
+        params.append(f"%{_escape_like(name)}%")
+    # Only fixed SQL fragments are joined here; every user value goes through %s parameters
+    where_clause = " AND ".join(conditions) if conditions else "TRUE"
+    with get_connection() as conn, conn.cursor(row_factory=dict_row) as cursor:
+        cursor.execute(f"SELECT * FROM employees WHERE {where_clause} ORDER BY employee_id;", params)
+        return cursor.fetchall()
+
 def get_review_periods(status=None):
     """All periods, newest first. Pass status (Open/Closed) to restrict; None returns every period."""
     with get_connection() as conn, conn.cursor(row_factory=dict_row) as cursor:

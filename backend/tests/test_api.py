@@ -114,3 +114,24 @@ def test_get_review_by_id(client, monkeypatch):
     missing = client.get("/api/reviews/999")
     assert missing.status_code == 404 and missing.json()["code"] == "REVIEW_NOT_FOUND"
     assert client.get("/api/reviews/abc").status_code == 422
+
+def test_search_by_employee_code_only(client, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(main, "search_employees", lambda **kw: seen.update(kw) or [EMPLOYEE])
+    response = client.get("/api/employees/search?employee_id=emp101")
+    assert response.status_code == 200 and response.json()[0]["employee_id"] == "EMP101"
+    assert seen == {"employee_code": "emp101", "name": None}
+
+def test_search_by_name_only(client, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(main, "search_employees", lambda **kw: seen.update(kw) or [])
+    assert client.get("/api/employees/search?name=smi").json() == []
+    assert seen == {"employee_code": None, "name": "smi"}
+
+def test_search_needs_at_least_one_filter(client):
+    response = client.get("/api/employees/search")
+    assert response.status_code == 422 and "at least one filter" in response.json()["detail"]
+
+def test_search_rejects_empty_values(client):
+    assert client.get("/api/employees/search?name=").status_code == 422
+    assert client.get("/api/employees/search?employee_id=").status_code == 422
