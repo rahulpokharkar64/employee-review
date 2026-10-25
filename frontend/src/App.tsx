@@ -59,12 +59,12 @@ function App() {
   }, [loadReferenceData]);
 
   const refreshReviews = useCallback(async (
-    employeeId?: string,
+    employeeCode?: string,
     periodId?: string,
   ) => {
     setDataError("");
     try {
-      const result = await getReviews(employeeId, periodId);
+      const result = await getReviews(employeeCode, periodId);
       setReviews(result);
       setApiConnected(true);
       return result;
@@ -93,7 +93,20 @@ function App() {
         <Routes>
           <Route
             path="/"
-            element={<Navigate to="/submit-review" replace />}
+            element={<Navigate to="/overview" replace />}
+          />
+          <Route
+            path="/overview"
+            element={
+              <OverviewPage
+                employees={employees}
+                periods={periods}
+                reviews={reviews}
+                loading={dataLoading}
+                onOpenReview={(review) => navigate(`/reviews/${review.id}`)}
+                onNavigate={navigate}
+              />
+            }
           />
           <Route
             path="/submit-review"
@@ -126,11 +139,14 @@ function App() {
             }
           />
           <Route
+            path="/employees"
+            element={<EmployeesPage employees={employees} reviews={reviews} />}
+          />
+          <Route
             path="/reviews/:reviewId"
             element={<ReviewDetailsPage />}
           />
-          <Route path="/review-details" element={<ReviewDetailsPage />} />
-          <Route path="*" element={<Navigate to="/submit-review" replace />} />
+          <Route path="*" element={<Navigate to="/overview" replace />} />
         </Routes>
       </AppShell>
     </div>
@@ -156,19 +172,23 @@ function AppShell({
   children: ReactNode;
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const detailRoute =
-    location.pathname.startsWith("/reviews/") ||
-    location.pathname === "/review-details";
+    location.pathname.startsWith("/reviews/");
   const title = detailRoute
     ? "Review Details"
     : location.pathname === "/reviews"
       ? "Review List"
-      : "Submit Review";
+      : location.pathname === "/employees"
+        ? "Employees"
+        : location.pathname === "/submit-review"
+          ? "Submit Review"
+          : "Overview";
 
   return (
     <>
       <aside className="sidebar">
-        <NavLink className="brand" to="/submit-review" aria-label="PeoplePulse home">
+        <NavLink className="brand" to="/overview" aria-label="PeoplePulse home">
           <BrandMark />
           <span className="brand-copy">
             <strong>PeoplePulse</strong>
@@ -179,20 +199,19 @@ function AppShell({
         <div className="workspace-label">WORKSPACE</div>
         <nav className="side-nav" aria-label="Main navigation">
           <SidebarLink
-            icon={<Icon name="edit" />}
-            label="Submit Review"
-            to="/submit-review"
+            icon={<Icon name="grid" />}
+            label="Overview"
+            to="/overview"
           />
           <SidebarLink
             icon={<Icon name="document" />}
-            label="Review List"
+            label="Reviews"
             to="/reviews"
           />
           <SidebarLink
-            active={detailRoute}
-            icon={<Icon name="eye" />}
-            label="Review Details"
-            to="/review-details"
+            icon={<Icon name="people" />}
+            label="Employees"
+            to="/employees"
           />
         </nav>
 
@@ -258,6 +277,24 @@ function AppShell({
               </button>
             </div>
           )}
+          {location.pathname !== "/submit-review" &&
+            location.pathname !== "/reviews" &&
+            location.pathname !== "/employees" &&
+            !detailRoute && (
+              <PageHeading
+                eyebrow="EMPLOYEE PERFORMANCE"
+                title="Performance overview"
+                description="A clear view of your people and their progress."
+                action={
+                  <button
+                    className="button button-primary"
+                    onClick={() => navigate("/submit-review")}
+                  >
+                    <Icon name="plus" /> New review
+                  </button>
+                }
+              />
+            )}
           {children}
         </div>
       </main>
@@ -287,6 +324,346 @@ function SidebarLink({
       {icon}
       <span>{label}</span>
     </NavLink>
+  );
+}
+
+function OverviewPage({
+  employees,
+  periods,
+  reviews,
+  loading,
+  onOpenReview,
+  onNavigate,
+}: {
+  employees: Employee[];
+  periods: ReviewPeriod[];
+  reviews: Review[];
+  loading: boolean;
+  onOpenReview: (review: Review) => void;
+  onNavigate: (path: string) => void;
+}) {
+  const average = reviews.length
+    ? reviews.reduce((sum, review) => sum + review.average_rating, 0) /
+      reviews.length
+    : null;
+  const activeCount = employees.filter(
+    (employee) => employee.status === "Active",
+  ).length;
+  const openPeriods = periods.filter(
+    (period) => period.status === "Open",
+  );
+  const departmentStats = new Map<
+    string,
+    { total: number; count: number }
+  >();
+  reviews.forEach((review) => {
+    const department =
+      employees.find((employee) => employee.id === review.employee_id)
+        ?.department || "Unassigned";
+    const current = departmentStats.get(department) ?? { total: 0, count: 0 };
+    current.total += review.average_rating;
+    current.count += 1;
+    departmentStats.set(department, current);
+  });
+  const departments = [...departmentStats.entries()]
+    .map(([name, stats]) => ({
+      name,
+      average: stats.total / stats.count,
+      count: stats.count,
+    }))
+    .sort((left, right) => right.average - left.average)
+    .slice(0, 5);
+
+  return (
+    <>
+      <section className="stats-grid" aria-label="Performance summary">
+        <StatCard
+          label="Average rating"
+          value={average === null ? "—" : average.toFixed(2)}
+          suffix={average === null ? undefined : "/ 5"}
+          footnote="Across submitted reviews"
+          icon={<Icon name="star" />}
+          tone="purple"
+        />
+        <StatCard
+          label="Reviews completed"
+          value={String(reviews.length)}
+          footnote="Submitted reviews"
+          icon={<Icon name="document" />}
+          tone="blue"
+        />
+        <StatCard
+          label="Active employees"
+          value={String(activeCount)}
+          footnote={`Of ${employees.length} employees`}
+          icon={<Icon name="people" />}
+          tone="green"
+        />
+        <StatCard
+          label="Open periods"
+          value={String(openPeriods.length)}
+          footnote="Accepting new reviews"
+          icon={<Icon name="calendar" />}
+          tone="orange"
+        />
+      </section>
+
+      <div className="overview-grid">
+        <section className="panel department-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>Performance by department</h2>
+              <p>Average review score out of 5</p>
+            </div>
+          </div>
+          {loading ? (
+            <LoadingInline label="Loading performance data" />
+          ) : departments.length ? (
+            <div className="department-chart">
+              {departments.map((department, index) => (
+                <div className="department-row" key={department.name}>
+                  <div className="department-label">
+                    <span className={`department-dot department-dot-${index + 1}`} />
+                    <span>{department.name}</span>
+                    <span className="department-count">{department.count}</span>
+                  </div>
+                  <div className="bar-track">
+                    <div
+                      className={`bar-fill bar-fill-${index + 1}`}
+                      style={{ width: `${(department.average / 5) * 100}%` }}
+                    />
+                  </div>
+                  <strong className="bar-score">
+                    {department.average.toFixed(1)}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No department ratings yet"
+              description="Ratings will appear here after reviews are submitted."
+            />
+          )}
+          <button
+            className="text-link department-link"
+            onClick={() => onNavigate("/employees")}
+          >
+            Explore employees <span>→</span>
+          </button>
+        </section>
+
+        <section className="panel period-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>Review periods</h2>
+              <p>Configured review cycles</p>
+            </div>
+            <Icon name="calendar" />
+          </div>
+          {periods.length ? (
+            <div className="period-list">
+              {periods.slice(0, 4).map((period) => (
+                <div className="period-item" key={period.id}>
+                  <div className="period-calendar">
+                    <span>{formatMonth(period.start_date)}</span>
+                    <strong>
+                      {new Date(`${period.start_date}T00:00:00`).getDate()}
+                    </strong>
+                  </div>
+                  <div className="period-info">
+                    <strong>{period.name}</strong>
+                    <span>
+                      {formatDate(period.start_date)} – {formatDate(period.end_date)}
+                    </span>
+                  </div>
+                  <StatusBadge status={period.status} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No review periods"
+              description="Configured cycles will appear here."
+            />
+          )}
+        </section>
+      </div>
+
+      <section className="panel recent-panel">
+        <div className="panel-heading recent-heading">
+          <div>
+            <h2>Recent reviews</h2>
+            <p>The latest submitted feedback across your organization</p>
+          </div>
+          <button
+            className="button button-secondary"
+            onClick={() => onNavigate("/reviews")}
+          >
+            View all reviews <span>→</span>
+          </button>
+        </div>
+        {loading ? (
+          <LoadingInline label="Loading reviews" />
+        ) : reviews.length ? (
+          <ReviewTable
+            reviews={reviews.slice(0, 5)}
+            onOpenReview={onOpenReview}
+          />
+        ) : (
+          <EmptyState
+            title="No reviews found"
+            description="Submitted reviews will show up here."
+          />
+        )}
+      </section>
+    </>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  suffix,
+  footnote,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+  footnote: string;
+  icon: ReactNode;
+  tone: string;
+}) {
+  return (
+    <article className="stat-card">
+      <div className="stat-topline">
+        <span>{label}</span>
+        <span className={`stat-icon stat-icon-${tone}`}>{icon}</span>
+      </div>
+      <div className="stat-value">
+        {value}
+        {suffix && <span>{suffix}</span>}
+      </div>
+      <div className="stat-footnote">{footnote}</div>
+    </article>
+  );
+}
+
+function EmployeesPage({
+  employees,
+  reviews,
+}: {
+  employees: Employee[];
+  reviews: Review[];
+}) {
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const filteredEmployees = employees.filter((employee) => {
+    const text = [
+      employee.name,
+      employee.employee_id,
+      employee.department ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    return (
+      text.includes(search.toLowerCase()) &&
+      (!status || employee.status === status)
+    );
+  });
+
+  return (
+    <>
+      <PageHeading
+        eyebrow="PEOPLE DIRECTORY"
+        title="Employees"
+        description="Employee performance summaries from completed reviews."
+      />
+      <section className="panel directory-panel">
+        <div className="directory-toolbar">
+          <div>
+            <h2>All employees</h2>
+            <p>{filteredEmployees.length} employees</p>
+          </div>
+          <div className="directory-controls">
+            <label className="search-input">
+              <Icon name="search" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search employees"
+                aria-label="Search employees"
+              />
+            </label>
+            <select
+              className="employee-status-filter"
+              aria-label="Filter by status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+            >
+              <option value="">All statuses</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        {filteredEmployees.length ? (
+          <div className="employee-grid">
+            {filteredEmployees.map((employee) => {
+              const employeeReviews = reviews.filter(
+                (review) => review.employee_id === employee.id,
+              );
+              const average = employeeReviews.length
+                ? employeeReviews.reduce(
+                    (sum, review) => sum + review.average_rating,
+                    0,
+                  ) / employeeReviews.length
+                : null;
+              return (
+                <article className="employee-card" key={employee.id}>
+                  <div className="employee-card-top">
+                    <div className={`avatar avatar-large ${avatarTone(employee.id)}`}>
+                      {initials(employee.name)}
+                    </div>
+                    <StatusBadge status={employee.status} />
+                  </div>
+                  <h3>{employee.name}</h3>
+                  <p className="employee-code">{employee.employee_id}</p>
+                  <p className="employee-department">
+                    {employee.department || "Department not assigned"}
+                  </p>
+                  {employee.email && (
+                    <a
+                      className="employee-email"
+                      href={`mailto:${employee.email}`}
+                    >
+                      {employee.email}
+                    </a>
+                  )}
+                  <div className="employee-card-stats">
+                    <div>
+                      <strong>{average === null ? "—" : average.toFixed(1)}</strong>
+                      <span>Average rating</span>
+                    </div>
+                    <div>
+                      <strong>{employeeReviews.length}</strong>
+                      <span>Reviews</span>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState
+            title="No employees found"
+            description="Try another employee name or status."
+          />
+        )}
+      </section>
+    </>
   );
 }
 
@@ -550,10 +927,10 @@ function ReviewListPage({
   periods: ReviewPeriod[];
   reviews: Review[];
   loading: boolean;
-  onFilter: (employeeId?: string, periodId?: string) => Promise<Review[] | null>;
+  onFilter: (employeeCode?: string, periodId?: string) => Promise<Review[] | null>;
 }) {
   const navigate = useNavigate();
-  const [employeeId, setEmployeeId] = useState("");
+  const [employeeCode, setEmployeeCode] = useState("");
   const [periodId, setPeriodId] = useState("");
   const [page, setPage] = useState(1);
   const [filterLoading, setFilterLoading] = useState(false);
@@ -564,13 +941,13 @@ function ReviewListPage({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFilterLoading(true);
-    const result = await onFilter(employeeId, periodId);
+    const result = await onFilter(employeeCode, periodId);
     if (result) setPage(1);
     setFilterLoading(false);
   }
 
   function resetFilters() {
-    setEmployeeId("");
+    setEmployeeCode("");
     setPeriodId("");
     setFilterLoading(true);
     void onFilter().then((result) => {
@@ -605,12 +982,12 @@ function ReviewListPage({
           <label className="filter-field">
             <span>Employee</span>
             <select
-              value={employeeId}
-              onChange={(event) => setEmployeeId(event.target.value)}
+              value={employeeCode}
+              onChange={(event) => setEmployeeCode(event.target.value)}
             >
               <option value="">All employees</option>
               {employees.map((employee) => (
-                <option key={employee.id} value={employee.id}>
+                <option key={employee.id} value={employee.employee_id}>
                   {employee.employee_id} — {employee.name}
                 </option>
               ))}
@@ -974,6 +1351,7 @@ function PageHeading({
   description: string;
   action?: ReactNode;
 }) {
+  const navigate = useNavigate();
   return (
     <section className="page-heading">
       <div>
@@ -981,7 +1359,14 @@ function PageHeading({
         <h1>{title}</h1>
         <p className="page-description">{description}</p>
       </div>
-      {action}
+      {action ?? (
+        <button
+          className="button button-primary"
+          onClick={() => navigate("/submit-review")}
+        >
+          <Icon name="plus" /> New review
+        </button>
+      )}
     </section>
   );
 }
@@ -1003,6 +1388,10 @@ function BrandMark() {
 
 function Icon({ name }: { name: string }) {
   const paths: Record<string, ReactNode> = {
+    grid: <><rect x="3.5" y="3.5" width="7" height="7" rx="1.5" /><rect x="13.5" y="3.5" width="7" height="7" rx="1.5" /><rect x="3.5" y="13.5" width="7" height="7" rx="1.5" /><rect x="13.5" y="13.5" width="7" height="7" rx="1.5" /></>,
+    people: <><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20" /><circle cx="10" cy="7.5" r="3.5" /><path d="M16 4.2a3.5 3.5 0 0 1 0 6.6M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35" /></>,
+    star: <path d="m12 3 2.75 5.58 6.16.9-4.45 4.34 1.05 6.13L12 17.06l-5.51 2.9 1.05-6.14L3.1 9.48l6.16-.9L12 3Z" />,
+    calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /></>,
     edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z" /></>,
     document: <><path d="M14 2.75H7A2.25 2.25 0 0 0 4.75 5v14A2.25 2.25 0 0 0 7 21.25h10A2.25 2.25 0 0 0 19.25 19V8z" /><path d="M14 2.75V8h5.25M8.5 12h7M8.5 16h7" /></>,
     eye: <><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></>,
@@ -1096,6 +1485,13 @@ function initials(name: string): string {
 
 function avatarTone(id: number): string {
   return `avatar-tone-${(id % 5) + 1}`;
+}
+
+function formatMonth(value: string): string {
+  const date = new Date(`${value}T00:00:00`);
+  return new Intl.DateTimeFormat("en", { month: "short" })
+    .format(date)
+    .toUpperCase();
 }
 
 function formatDate(value: string): string {

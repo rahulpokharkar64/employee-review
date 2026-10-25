@@ -71,11 +71,11 @@ export function getReviewPeriods(): Promise<ReviewPeriod[]> {
 }
 
 export function getReviews(
-  employeeId?: string,
+  employeeCode?: string,
   periodId?: string,
 ): Promise<Review[]> {
   const query = new URLSearchParams();
-  if (employeeId) query.set("employee_id", employeeId);
+  if (employeeCode) query.set("employee_id", employeeCode);
   if (periodId) query.set("period_id", periodId);
   const suffix = query.size ? `?${query.toString()}` : "";
   return request<Review[]>(`/reviews${suffix}`);
