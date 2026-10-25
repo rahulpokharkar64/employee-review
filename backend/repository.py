@@ -22,8 +22,9 @@ def get_period_by_id(period_id: int):
 
 def insert_review(data: dict, average_rating: float):
     """
-    Inserts a review and returns the saved row, or None when the employee already has a review for that period.
-    The spec's table has no UNIQUE (employee_id, period_id), so this does not rely on one: a transaction-level
+    Inserts a review and returns the saved row with employee and period labels, or None when the employee
+    already has a review for that period.
+    The database may not have UNIQUE (employee_id, period_id), so this does not rely on one: a transaction-level
     advisory lock on the pair makes concurrent requests for the same employee and period run one after another,
     and the insert only happens when no review exists yet.
     """
@@ -31,14 +32,20 @@ def insert_review(data: dict, average_rating: float):
         cursor.execute("SELECT pg_advisory_xact_lock(%s, %s);", (data["employee_id"], data["period_id"]))
         cursor.execute(
             """
-            INSERT INTO performance_reviews (
-                employee_id, period_id, quality_rating, delivery_rating, teamwork_rating, average_rating, comments
+            WITH inserted AS (
+                INSERT INTO performance_reviews (
+                    employee_id, period_id, quality_rating, delivery_rating, teamwork_rating, average_rating, comments
+                )
+                SELECT %s, %s, %s, %s, %s, %s, %s
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM performance_reviews WHERE employee_id = %s AND period_id = %s
+                )
+                RETURNING *
             )
-            SELECT %s, %s, %s, %s, %s, %s, %s
-            WHERE NOT EXISTS (
-                SELECT 1 FROM performance_reviews WHERE employee_id = %s AND period_id = %s
-            )
-            RETURNING *;
+            SELECT i.*, e.employee_id AS employee_code, e.name AS employee_name, p.name AS period_name
+            FROM inserted i
+            JOIN employees e ON e.id = i.employee_id
+            JOIN review_periods p ON p.id = i.period_id;
             """,
             (
                 data["employee_id"], data["period_id"], data["quality_rating"], data["delivery_rating"],

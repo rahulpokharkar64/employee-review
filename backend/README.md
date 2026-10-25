@@ -10,15 +10,17 @@ FastAPI + PostgreSQL (psycopg 3). Base path `/api`. The tables (`employees`, `re
 Connectivity check: runs `SELECT 1`. `200 {"status":"ok","database":"up"}`, or `503 {"status":"unavailable","database":"down"}` when the database cannot be reached.
 
 ### `POST /api/reviews`
-Body: `employee_id`, `period_id` (database ids), `quality_rating`, `delivery_rating`, `teamwork_rating` (1-5), `comments` (required).
-The server sets `id`, `average_rating = (q + d + t) / 3` (2 decimals) and `created_at`.
+Follows the team's OpenAPI contract. Body (unknown fields rejected): `employee_id`, `period_id` (database ids), `quality_rating`, `delivery_rating`, `teamwork_rating` (1-5), `comments` (required, non-blank).
+The server sets `id`, `average_rating = (q + d + t) / 3` (2 decimals), `created_at`, and returns the review with `employee_code`, `employee_name`, `period_name` and `status: "Completed"`.
 
-| Status | When |
-| :-- | :-- |
-| 201 | Saved; returns the review |
-| 404 | Unknown employee or period |
-| 409 | Period is Closed, or the employee already has a review for the period |
-| 422 | Rating outside 1-5, missing or blank comments, wrong types |
+| Status | Body | When |
+| :-- | :-- | :-- |
+| 201 | review | Saved |
+| 400 | `{"code":"REVIEW_PERIOD_CLOSED","message":...}` | Period is Closed |
+| 404 | `EMPLOYEE_NOT_FOUND` / `PERIOD_NOT_FOUND` | Unknown employee or period |
+| 409 | `DUPLICATE_REVIEW` | Employee already has a review for the period |
+| 422 | FastAPI `{"detail":[...]}` | Rating outside 1-5, blank comments, unknown or wrongly typed fields |
+| 500 | `SERVER_ERROR` | Unexpected error |
 
 ## Notes
 The one-review-per-period rule is enforced in the insert (advisory lock + `WHERE NOT EXISTS`), because the spec's table has no unique constraint.

@@ -23,27 +23,39 @@ def client(monkeypatch):
         key = (data["employee_id"], data["period_id"])
         if key in saved:
             return None
-        saved[key] = {"id": len(saved) + 1, **data, "average_rating": average, "created_at": datetime(2026, 1, 15, 10, 30)}
+        saved[key] = {
+            "id": len(saved) + 1, **data, "average_rating": average, "created_at": datetime(2026, 1, 15, 10, 30),
+            "employee_code": "EMP101", "employee_name": "John Smith", "period_name": "H1 2026",
+        }
         return saved[key]
 
     monkeypatch.setattr(main, "insert_review", insert)
     return TestClient(main.app)
 
-def test_create_calculates_average(client):
+def test_create_returns_enriched_review(client):
     response = client.post("/api/reviews", json=BODY)
+    body = response.json()
     assert response.status_code == 201
-    assert response.json()["average_rating"] == 4.33
+    assert body["average_rating"] == 4.33
+    assert (body["employee_code"], body["employee_name"], body["period_name"], body["status"]) == ("EMP101", "John Smith", "H1 2026", "Completed")
 
-def test_duplicate_is_409(client):
+def test_duplicate_is_409_with_code(client):
     client.post("/api/reviews", json=BODY)
-    assert client.post("/api/reviews", json=BODY).status_code == 409
+    response = client.post("/api/reviews", json=BODY)
+    assert response.status_code == 409 and response.json()["code"] == "DUPLICATE_REVIEW"
 
-def test_closed_period_is_409(client):
-    assert client.post("/api/reviews", json={**BODY, "period_id": 1}).status_code == 409
+def test_closed_period_is_400_with_code(client):
+    response = client.post("/api/reviews", json={**BODY, "period_id": 1})
+    assert response.status_code == 400
+    assert response.json() == {"code": "REVIEW_PERIOD_CLOSED", "message": "Only Open review periods accept new reviews."}
 
-def test_unknown_employee_or_period_is_404(client):
-    assert client.post("/api/reviews", json={**BODY, "employee_id": 99}).status_code == 404
-    assert client.post("/api/reviews", json={**BODY, "period_id": 99}).status_code == 404
+def test_unknown_employee_or_period_is_404_with_code(client):
+    assert client.post("/api/reviews", json={**BODY, "employee_id": 99}).json()["code"] == "EMPLOYEE_NOT_FOUND"
+    response = client.post("/api/reviews", json={**BODY, "period_id": 99})
+    assert response.status_code == 404 and response.json()["code"] == "PERIOD_NOT_FOUND"
+
+def test_unknown_fields_are_rejected(client):
+    assert client.post("/api/reviews", json={**BODY, "average_rating": 5}).status_code == 422
 
 @pytest.mark.parametrize("change", [
     {"quality_rating": 0}, {"delivery_rating": 6}, {"teamwork_rating": "x"}, {"comments": "   "}, {"comments": ""},
