@@ -13,6 +13,7 @@ Connectivity check: runs `SELECT 1`. `200 {"status":"ok","database":"up"}`, or `
 | Endpoint | Notes |
 | :-- | :-- |
 | `GET /api/employees` | optional `?status=Active\|Inactive` |
+| `GET /api/employees/search` | `employee_id` (code, e.g. `EMP101`, exact, case-insensitive) and/or `name` (part of the name, case-insensitive); both combine with AND; 422 when neither is given; `[]` when nothing matches. Not in the OpenAPI contract yet. |
 | `GET /api/review-periods` | optional `?status=Open\|Closed`, newest first |
 | `GET /api/reviews` | optional `employee_id`, `period_id` (numeric DB keys, AND); newest first; `[]` when nothing matches; no pagination in the contract |
 | `GET /api/reviews/{id}` | 404 `REVIEW_NOT_FOUND`; 422 for a non-integer id |
