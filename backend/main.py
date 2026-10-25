@@ -1,15 +1,14 @@
 import os
 from typing import List, Literal, Optional
-from fastapi import APIRouter, FastAPI, HTTPException, Path, Query, Request, Response
+from fastapi import APIRouter, FastAPI, Path, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from errors import ApiError
 from models import Employee, ErrorResponse, Review, ReviewCreate, ReviewPeriod
 from repository import (
-    check_database, get_employee_by_id, get_employees, get_period_by_id, get_review_by_id,
-    get_review_periods, insert_review, list_reviews, search_employees,
+    check_database, get_employees, get_review_by_id, get_review_periods, list_reviews,
 )
-from service import calculate_average, period_accepts_reviews
+from service import find_employees, submit_review
 
 app = FastAPI(
     title="Employee Performance Review Management",
@@ -61,9 +60,7 @@ def search_employees_endpoint(
     Finds employees by code, by name, or both (AND). At least one of employee_id or name is required (422 otherwise).
     Returns [] when nothing matches.
     """
-    if employee_id is None and name is None:
-        raise HTTPException(status_code=422, detail="Provide at least one filter: employee_id or name.")
-    return search_employees(employee_code=employee_id, name=name)
+    return find_employees(employee_code=employee_id, name=name)
 
 @api.get("/review-periods", response_model=List[ReviewPeriod])
 def list_review_periods(status: Optional[Literal["Open", "Closed"]] = None):
@@ -97,18 +94,6 @@ def create_review(payload: ReviewCreate):
     Submits a review. The server calculates average_rating.
     404 EMPLOYEE_NOT_FOUND / PERIOD_NOT_FOUND; 400 REVIEW_PERIOD_CLOSED; 409 DUPLICATE_REVIEW; 422 invalid body.
     """
-    if get_employee_by_id(payload.employee_id) is None:
-        raise ApiError(404, "EMPLOYEE_NOT_FOUND", f"Employee with id {payload.employee_id} was not found.")
-    period = get_period_by_id(payload.period_id)
-    if period is None:
-        raise ApiError(404, "PERIOD_NOT_FOUND", f"Review period with id {payload.period_id} was not found.")
-    if not period_accepts_reviews(period):
-        raise ApiError(400, "REVIEW_PERIOD_CLOSED", "Only Open review periods accept new reviews.")
-
-    data = payload.model_dump()
-    saved = insert_review(data, calculate_average(data))
-    if saved is None:
-        raise ApiError(409, "DUPLICATE_REVIEW", "A review already exists for this employee and period.")
-    return saved
+    return submit_review(payload.model_dump())
 
 app.include_router(api)

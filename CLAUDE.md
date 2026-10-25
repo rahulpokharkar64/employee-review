@@ -38,6 +38,9 @@ Error bodies follow the contract: `{"code": "...", "message": "..."}`. FastAPI v
 ## Backend rules (`backend/`)
 - Layering, one direction: `main.py` (routes, HTTP) -> `models.py` (Pydantic), `service.py` (rules), `repository.py` (all SQL) -> `database.py` (pool).
   No SQL in routes or `service.py`. No HTTP errors in the repository. Business failures raise `ApiError` (`errors.py`).
+- All business rules live in `service.py`: existence checks, the open-period rule, duplicate detection, average calculation, filter requirements.
+  Routes only parse input and call one service function. Repository functions return data and do not decide anything.
+  The one exception is the atomic insert guard in `repository.insert_review`, which must sit next to the SQL to be race-free.
 - The server sets `id`, `average_rating`, `created_at`, `employee_code`, `employee_name`, `period_name` and `status`. Clients never send them. Request models use `extra="forbid"`.
 - Validate at the edge: Pydantic `Field`, `Query(ge=...)`, `Literal` for enums. Every route declares `response_model`.
 - Parameterized SQL only (`%s`). Dynamic `WHERE` is built only from fixed fragments.
