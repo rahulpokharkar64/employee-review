@@ -1,10 +1,14 @@
 import os
-from fastapi import APIRouter, FastAPI, Request, Response
+from typing import List, Literal, Optional
+from fastapi import APIRouter, FastAPI, Path, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from errors import ApiError
-from models import ErrorResponse, Review, ReviewCreate
-from repository import check_database, get_employee_by_id, get_period_by_id, insert_review
+from models import Employee, ErrorResponse, Review, ReviewCreate, ReviewPeriod
+from repository import (
+    check_database, get_employee_by_id, get_employees, get_period_by_id, get_review_by_id,
+    get_review_periods, insert_review, list_reviews,
+)
 from service import calculate_average, period_accepts_reviews
 
 app = FastAPI(
@@ -38,6 +42,32 @@ def health(response: Response):
         return {"status": "ok", "database": "up"}
     response.status_code = 503
     return {"status": "unavailable", "database": "down"}
+
+@api.get("/employees", response_model=List[Employee])
+def list_employees(status: Optional[Literal["Active", "Inactive"]] = None):
+    """Employee master records for the review form. Pass status=Active to return only active employees."""
+    return get_employees(status)
+
+@api.get("/review-periods", response_model=List[ReviewPeriod])
+def list_review_periods(status: Optional[Literal["Open", "Closed"]] = None):
+    """Configured review periods, newest first. The form should submit only to a period with status Open."""
+    return get_review_periods(status)
+
+@api.get("/reviews", response_model=List[Review])
+def reviews(
+    employee_id: Optional[int] = Query(default=None, ge=1, description="employees.id (numeric DB key), not the EMP101-style code"),
+    period_id: Optional[int] = Query(default=None, ge=1, description="review_periods.id (numeric DB key)"),
+):
+    """Reviews for the register, newest first, optionally filtered (AND). An empty result is []."""
+    return list_reviews(employee_id=employee_id, period_id=period_id)
+
+@api.get("/reviews/{id}", response_model=Review, responses={404: {"model": ErrorResponse}})
+def get_review(id: int = Path(ge=1, description="performance_reviews.id")):
+    """One review. 404 REVIEW_NOT_FOUND if it does not exist."""
+    review = get_review_by_id(id)
+    if review is None:
+        raise ApiError(404, "REVIEW_NOT_FOUND", f"No review exists with id {id}.")
+    return review
 
 @api.post(
     "/reviews",

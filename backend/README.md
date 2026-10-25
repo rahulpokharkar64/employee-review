@@ -9,6 +9,16 @@ FastAPI + PostgreSQL (psycopg 3). Base path `/api`. The tables (`employees`, `re
 ### `GET /api/health`
 Connectivity check: runs `SELECT 1`. `200 {"status":"ok","database":"up"}`, or `503 {"status":"unavailable","database":"down"}` when the database cannot be reached.
 
+### Read endpoints (team contract)
+| Endpoint | Notes |
+| :-- | :-- |
+| `GET /api/employees` | optional `?status=Active\|Inactive` |
+| `GET /api/review-periods` | optional `?status=Open\|Closed`, newest first |
+| `GET /api/reviews` | optional `employee_id`, `period_id` (numeric DB keys, AND); newest first; `[]` when nothing matches; no pagination in the contract |
+| `GET /api/reviews/{id}` | 404 `REVIEW_NOT_FOUND`; 422 for a non-integer id |
+
+Review rows include `employee_code`, `employee_name`, `period_name` and `status: "Completed"` (derived). A NULL `comments` in the database is returned as `""`.
+
 ### `POST /api/reviews`
 Follows the team's OpenAPI contract. Body (unknown fields rejected): `employee_id`, `period_id` (database ids), `quality_rating`, `delivery_rating`, `teamwork_rating` (1-5), `comments` (required, non-blank).
 The server sets `id`, `average_rating = (q + d + t) / 3` (2 decimals), `created_at`, and returns the review with `employee_code`, `employee_name`, `period_name` and `status: "Completed"`.

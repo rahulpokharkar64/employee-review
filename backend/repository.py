@@ -10,6 +10,55 @@ def check_database(timeout: float = 3) -> bool:
     except Exception:
         return False
 
+# A review with the employee and period labels the register UI shows. comments is nullable in some
+# database versions, but the API contract says it is always present, so NULL is returned as an empty string.
+_REVIEW_WITH_LABELS = """
+    SELECT r.id, r.employee_id, e.employee_id AS employee_code, e.name AS employee_name,
+           r.period_id, p.name AS period_name, r.quality_rating, r.delivery_rating, r.teamwork_rating,
+           r.average_rating, COALESCE(r.comments, '') AS comments, r.created_at
+    FROM performance_reviews r
+    JOIN employees e ON e.id = r.employee_id
+    JOIN review_periods p ON p.id = r.period_id
+"""
+
+def get_employees(status=None):
+    """All employees by code. Pass status (Active/Inactive) to restrict; None returns everyone."""
+    with get_connection() as conn, conn.cursor(row_factory=dict_row) as cursor:
+        cursor.execute(
+            "SELECT * FROM employees WHERE (%s::text IS NULL OR status = %s) ORDER BY employee_id;",
+            (status, status),
+        )
+        return cursor.fetchall()
+
+def get_review_periods(status=None):
+    """All periods, newest first. Pass status (Open/Closed) to restrict; None returns every period."""
+    with get_connection() as conn, conn.cursor(row_factory=dict_row) as cursor:
+        cursor.execute(
+            "SELECT * FROM review_periods WHERE (%s::text IS NULL OR status = %s) ORDER BY start_date DESC, id DESC;",
+            (status, status),
+        )
+        return cursor.fetchall()
+
+def list_reviews(employee_id=None, period_id=None):
+    """Reviews matching every filter given (AND), newest first. Filters left as None are ignored."""
+    conditions, params = [], []
+    if employee_id is not None:
+        conditions.append("r.employee_id = %s")
+        params.append(employee_id)
+    if period_id is not None:
+        conditions.append("r.period_id = %s")
+        params.append(period_id)
+    # Only fixed SQL fragments are joined here; every user value goes through %s parameters
+    where_clause = " AND ".join(conditions) if conditions else "TRUE"
+    with get_connection() as conn, conn.cursor(row_factory=dict_row) as cursor:
+        cursor.execute(f"{_REVIEW_WITH_LABELS} WHERE {where_clause} ORDER BY r.created_at DESC, r.id DESC;", params)
+        return cursor.fetchall()
+
+def get_review_by_id(review_id: int):
+    with get_connection() as conn, conn.cursor(row_factory=dict_row) as cursor:
+        cursor.execute(f"{_REVIEW_WITH_LABELS} WHERE r.id = %s;", (review_id,))
+        return cursor.fetchone()
+
 def get_employee_by_id(employee_id: int):
     with get_connection() as conn, conn.cursor(row_factory=dict_row) as cursor:
         cursor.execute("SELECT * FROM employees WHERE id = %s;", (employee_id,))

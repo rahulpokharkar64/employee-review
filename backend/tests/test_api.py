@@ -72,3 +72,45 @@ def test_health_database_down_is_503(client, monkeypatch):
     monkeypatch.setattr(main, "check_database", lambda: False)
     response = client.get("/api/health")
     assert response.status_code == 503 and response.json()["database"] == "down"
+
+REVIEW_ROW = {
+    "id": 101, "employee_id": 1, "employee_code": "EMP101", "employee_name": "John Smith", "period_id": 3, "period_name": "H2 2026",
+    "quality_rating": 4, "delivery_rating": 5, "teamwork_rating": 4, "average_rating": 4.33, "comments": "Strong.",
+    "created_at": datetime(2026, 10, 25, 9, 30),
+}
+
+def test_list_employees_passes_status_filter(client, monkeypatch):
+    seen = []
+    monkeypatch.setattr(main, "get_employees", lambda status: seen.append(status) or [EMPLOYEE])
+    assert client.get("/api/employees").status_code == 200
+    response = client.get("/api/employees?status=Active")
+    assert response.json()[0]["employee_id"] == "EMP101" and seen == [None, "Active"]
+    assert client.get("/api/employees?status=Gone").status_code == 422
+
+def test_list_review_periods_filter(client, monkeypatch):
+    monkeypatch.setattr(main, "get_review_periods", lambda status: [OPEN] if status == "Open" else [OPEN, CLOSED])
+    assert len(client.get("/api/review-periods").json()) == 2
+    assert client.get("/api/review-periods?status=Open").json()[0]["status"] == "Open"
+    assert client.get("/api/review-periods?status=Nope").status_code == 422
+
+def test_list_reviews_filters_and_status_label(client, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(main, "list_reviews", lambda **kw: seen.update(kw) or [REVIEW_ROW])
+    response = client.get("/api/reviews?employee_id=1&period_id=3")
+    assert seen == {"employee_id": 1, "period_id": 3}
+    assert response.json()[0]["status"] == "Completed"
+
+def test_list_reviews_empty_is_empty_array(client, monkeypatch):
+    monkeypatch.setattr(main, "list_reviews", lambda **kw: [])
+    assert client.get("/api/reviews").json() == []
+
+@pytest.mark.parametrize("query", ["employee_id=abc", "period_id=0", "employee_id=-1"])
+def test_list_reviews_invalid_filter_is_422(client, query):
+    assert client.get(f"/api/reviews?{query}").status_code == 422
+
+def test_get_review_by_id(client, monkeypatch):
+    monkeypatch.setattr(main, "get_review_by_id", lambda i: REVIEW_ROW if i == 101 else None)
+    assert client.get("/api/reviews/101").json()["employee_name"] == "John Smith"
+    missing = client.get("/api/reviews/999")
+    assert missing.status_code == 404 and missing.json()["code"] == "REVIEW_NOT_FOUND"
+    assert client.get("/api/reviews/abc").status_code == 422
