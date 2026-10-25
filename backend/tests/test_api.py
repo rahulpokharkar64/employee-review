@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import pytest
 from fastapi.testclient import TestClient
 import main
+import service
 
 # The repository is replaced with in-memory fakes, so these tests need no database.
 EMPLOYEE = {"id": 1, "employee_id": "EMP101", "name": "John Smith", "department": "Engineering", "email": None, "status": "Active"}
@@ -16,8 +17,8 @@ BODY = {"employee_id": 1, "period_id": 2, "quality_rating": 4, "delivery_rating"
 @pytest.fixture
 def client(monkeypatch):
     saved = {}
-    monkeypatch.setattr(main, "get_employee_by_id", lambda i: EMPLOYEE if i == 1 else None)
-    monkeypatch.setattr(main, "get_period_by_id", lambda i: {2: OPEN, 1: CLOSED}.get(i))
+    monkeypatch.setattr(service, "get_employee_by_id", lambda i: EMPLOYEE if i == 1 else None)
+    monkeypatch.setattr(service, "get_period_by_id", lambda i: {2: OPEN, 1: CLOSED}.get(i))
 
     def insert(data, average):
         key = (data["employee_id"], data["period_id"])
@@ -29,7 +30,7 @@ def client(monkeypatch):
         }
         return saved[key]
 
-    monkeypatch.setattr(main, "insert_review", insert)
+    monkeypatch.setattr(service, "insert_review", insert)
     return TestClient(main.app)
 
 def test_create_returns_enriched_review(client):
@@ -117,20 +118,20 @@ def test_get_review_by_id(client, monkeypatch):
 
 def test_search_by_employee_code_only(client, monkeypatch):
     seen = {}
-    monkeypatch.setattr(main, "search_employees", lambda **kw: seen.update(kw) or [EMPLOYEE])
+    monkeypatch.setattr(service, "search_employees", lambda **kw: seen.update(kw) or [EMPLOYEE])
     response = client.get("/api/employees/search?employee_id=emp101")
     assert response.status_code == 200 and response.json()[0]["employee_id"] == "EMP101"
     assert seen == {"employee_code": "emp101", "name": None}
 
 def test_search_by_name_only(client, monkeypatch):
     seen = {}
-    monkeypatch.setattr(main, "search_employees", lambda **kw: seen.update(kw) or [])
+    monkeypatch.setattr(service, "search_employees", lambda **kw: seen.update(kw) or [])
     assert client.get("/api/employees/search?name=smi").json() == []
     assert seen == {"employee_code": None, "name": "smi"}
 
 def test_search_needs_at_least_one_filter(client):
     response = client.get("/api/employees/search")
-    assert response.status_code == 422 and "at least one filter" in response.json()["detail"]
+    assert response.status_code == 422 and response.json()["code"] == "FILTER_REQUIRED"
 
 def test_search_rejects_empty_values(client):
     assert client.get("/api/employees/search?name=").status_code == 422
