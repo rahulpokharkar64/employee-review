@@ -61,12 +61,15 @@ def get_review_periods(status=None):
         )
         return cursor.fetchall()
 
-def list_reviews(employee_id=None, period_id=None):
-    """Reviews matching every filter given (AND), newest first. Filters left as None are ignored."""
+def list_reviews(employee_code=None, period_id=None):
+    """
+    Reviews matching every filter given (AND), newest first. employee_code matches the EMP101-style code
+    (case-insensitive). Filters left as None are ignored.
+    """
     conditions, params = [], []
-    if employee_id is not None:
-        conditions.append("r.employee_id = %s")
-        params.append(employee_id)
+    if employee_code is not None:
+        conditions.append("UPPER(e.employee_id) = UPPER(%s)")
+        params.append(employee_code)
     if period_id is not None:
         conditions.append("r.period_id = %s")
         params.append(period_id)

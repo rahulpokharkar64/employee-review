@@ -72,11 +72,11 @@ def list_review_periods(status: Optional[Literal["Open", "Closed"]] = None):
 
 @api.get("/reviews", response_model=List[Review])
 def reviews(
-    employee_id: Optional[int] = Query(default=None, ge=1, description="employees.id (numeric DB key), not the EMP101-style code"),
+    employee_id: Optional[str] = Query(default=None, min_length=1, max_length=20, description="Employee code, e.g. EMP101 (case-insensitive)"),
     period_id: Optional[int] = Query(default=None, ge=1, description="review_periods.id (numeric DB key)"),
 ):
-    """Reviews for the register, newest first, optionally filtered (AND). An empty result is []."""
-    return list_reviews(employee_id=employee_id, period_id=period_id)
+    """Reviews for the register, newest first, optionally filtered by employee code and/or period (AND). An empty result is []."""
+    return list_reviews(employee_code=employee_id, period_id=period_id)
 
 @api.get("/reviews/{id}", response_model=Review, responses={404: {"model": ErrorResponse}})
 def get_review(id: int = Path(ge=1, description="performance_reviews.id")):
