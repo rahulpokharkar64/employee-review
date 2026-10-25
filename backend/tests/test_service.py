@@ -2,9 +2,12 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from datetime import datetime
+
 import pytest
 import service
 from errors import ApiError
+from models import Review
 from service import calculate_average, find_employees, period_accepts_reviews, submit_review
 
 def test_average_matches_spec_example():
@@ -21,8 +24,14 @@ def test_only_open_periods_accept_reviews():
 
 DATA = {"employee_id": 1, "period_id": 2, "quality_rating": 4, "delivery_rating": 5, "teamwork_rating": 4, "comments": "ok"}
 OPEN = {"id": 2, "name": "H1 2026", "status": "Open"}
+SAVED_ROW = {
+    "id": 7, "employee_id": 1, "employee_code": "EMP101", "employee_name": "John Smith", "period_id": 2,
+    "period_name": "H1 2026", "quality_rating": 4, "delivery_rating": 5, "teamwork_rating": 4,
+    "average_rating": 4.33, "comments": "ok", "created_at": datetime(2026, 1, 15, 10, 30),
+}
+EMPLOYEE_ROW = {"id": 1, "employee_id": "EMP101", "name": "John Smith", "department": None, "email": None, "status": "Active"}
 
-def patch_lookups(monkeypatch, employee=True, period=OPEN, saved="SAVED"):
+def patch_lookups(monkeypatch, employee=True, period=OPEN, saved=SAVED_ROW):
     seen = {}
     monkeypatch.setattr(service, "get_employee_by_id", lambda i: {"id": i} if employee else None)
     monkeypatch.setattr(service, "get_period_by_id", lambda i: period)
@@ -34,7 +43,9 @@ def patch_lookups(monkeypatch, employee=True, period=OPEN, saved="SAVED"):
 
 def test_submit_saves_with_calculated_average(monkeypatch):
     seen = patch_lookups(monkeypatch)
-    assert submit_review(DATA) == "SAVED" and seen["average"] == 4.33
+    review = submit_review(DATA)
+    assert isinstance(review, Review) and review.id == 7 and review.status == "Completed"
+    assert seen["average"] == 4.33
 
 def test_submit_unknown_employee_is_404(monkeypatch):
     patch_lookups(monkeypatch, employee=False)
@@ -67,6 +78,6 @@ def test_find_employees_requires_a_filter():
 
 def test_find_employees_passes_filters_to_repository(monkeypatch):
     seen = {}
-    monkeypatch.setattr(service, "search_employees", lambda **kw: seen.update(kw) or ["row"])
-    assert find_employees(employee_code="EMP101") == ["row"]
+    monkeypatch.setattr(service, "search_employees", lambda **kw: seen.update(kw) or [EMPLOYEE_ROW])
+    assert [employee.employee_id for employee in find_employees(employee_code="EMP101")] == ["EMP101"]
     assert seen == {"employee_code": "EMP101", "name": None}

@@ -1,8 +1,11 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from psycopg_pool import ConnectionPool
 
-load_dotenv()
+# Read only this project's backend/.env. Without an explicit path, python-dotenv searches parent folders
+# and can pick up another project's .env.
+load_dotenv(Path(__file__).resolve().parent / ".env")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Opened lazily on first use so importing this module (e.g. in tests) needs no database
