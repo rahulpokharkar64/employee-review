@@ -5,10 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from errors import ApiError
 from models import Employee, ErrorResponse, Review, ReviewCreate, ReviewPeriod
-from repository import (
-    check_database, get_employees, get_review_by_id, get_review_periods, list_reviews,
-)
-from service import find_employees, submit_review
+import service
 
 app = FastAPI(
     title="Employee Performance Review Management",
@@ -37,7 +34,7 @@ api = APIRouter(prefix="/api")
 @api.get("/health")
 def health(response: Response):
     """Connectivity check. 200 when the API and the database are reachable, 503 when the database is not."""
-    if check_database():
+    if service.database_is_up():
         return {"status": "ok", "database": "up"}
     response.status_code = 503
     return {"status": "unavailable", "database": "down"}
@@ -45,7 +42,7 @@ def health(response: Response):
 @api.get("/employees", response_model=List[Employee])
 def list_employees(status: Optional[Literal["Active", "Inactive"]] = None):
     """Employee master records for the review form. Pass status=Active to return only active employees."""
-    return get_employees(status)
+    return service.list_employees(status)
 
 @api.get(
     "/employees/search",
@@ -60,12 +57,12 @@ def search_employees_endpoint(
     Finds employees by code, by name, or both (AND). At least one of employee_id or name is required (422 otherwise).
     Returns [] when nothing matches.
     """
-    return find_employees(employee_code=employee_id, name=name)
+    return service.find_employees(employee_code=employee_id, name=name)
 
 @api.get("/review-periods", response_model=List[ReviewPeriod])
 def list_review_periods(status: Optional[Literal["Open", "Closed"]] = None):
     """Configured review periods, newest first. The form should submit only to a period with status Open."""
-    return get_review_periods(status)
+    return service.list_review_periods(status)
 
 @api.get("/reviews", response_model=List[Review])
 def reviews(
@@ -73,15 +70,12 @@ def reviews(
     period_id: Optional[int] = Query(default=None, ge=1, description="review_periods.id (numeric DB key)"),
 ):
     """Reviews for the register, newest first, optionally filtered by employee code and/or period (AND). An empty result is []."""
-    return list_reviews(employee_code=employee_id, period_id=period_id)
+    return service.get_reviews(employee_code=employee_id, period_id=period_id)
 
 @api.get("/reviews/{id}", response_model=Review, responses={404: {"model": ErrorResponse}})
 def get_review(id: int = Path(ge=1, description="performance_reviews.id")):
     """One review. 404 REVIEW_NOT_FOUND if it does not exist."""
-    review = get_review_by_id(id)
-    if review is None:
-        raise ApiError(404, "REVIEW_NOT_FOUND", f"No review exists with id {id}.")
-    return review
+    return service.get_review(id)
 
 @api.post(
     "/reviews",
@@ -94,6 +88,6 @@ def create_review(payload: ReviewCreate):
     Submits a review. The server calculates average_rating.
     404 EMPLOYEE_NOT_FOUND / PERIOD_NOT_FOUND; 400 REVIEW_PERIOD_CLOSED; 409 DUPLICATE_REVIEW; 422 invalid body.
     """
-    return submit_review(payload.model_dump())
+    return service.submit_review(payload.model_dump())
 
 app.include_router(api)
