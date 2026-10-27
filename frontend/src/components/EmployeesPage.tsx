@@ -1,120 +1,58 @@
-import { useState } from "react";
-import type { Employee, Review } from "../types";
-import { EmptyState, Icon, PageHeading, StatusBadge } from "./shared";
-import { avatarTone, initials } from "./utils";
+import { useEffect, useMemo, useState } from 'react'
+import { getEmployees, getReviews } from '../api'
+import { PAGE_SIZE } from '../config'
+import { useApi } from '../hooks'
+import { DEFAULT_FILTERS } from '../types'
+import type { Review } from '../types'
+import EmployeeSearch from './EmployeeSearch'
+import EmployeeTable from './EmployeeTable'
+import Header from './Header'
+import Pagination from './Pagination'
+import StatusMessage from './StatusMessage'
 
-export function EmployeesPage({
-  employees,
-  reviews,
-}: {
-  employees: Employee[];
-  reviews: Review[];
-}) {
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
-  const filteredEmployees = employees.filter((employee) => {
-    const text = [
-      employee.name,
-      employee.employee_id,
-      employee.department ?? "",
-    ]
-      .join(" ")
-      .toLowerCase();
-    return (
-      text.includes(search.toLowerCase()) &&
-      (!status || employee.status === status)
-    );
-  });
+export default function EmployeesPage() {
+  const employees = useApi(() => getEmployees())
+  const reviews = useApi(() => getReviews(DEFAULT_FILTERS))
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+
+  useEffect(() => setPage(1), [search])
+
+  // Group reviews by employee code so each row can show its rating and latest comment.
+  const reviewsByCode = useMemo(() => {
+    const map = new Map<string, Review[]>()
+    ;(reviews.data ?? []).forEach((r) => map.set(r.employee_code, [...(map.get(r.employee_code) ?? []), r]))
+    return map
+  }, [reviews.data])
+
+  const term = search.trim().toLowerCase()
+  const filtered = (employees.data ?? []).filter(
+    (e) => !term || e.employee_id.toLowerCase().includes(term) || e.name.toLowerCase().includes(term),
+  )
+  const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const loading = employees.loading || reviews.loading
+  const error = employees.error || reviews.error
 
   return (
-    <>
-      <PageHeading
-        eyebrow="PEOPLE DIRECTORY"
-        title="Employees"
-        description="Employee performance summaries from completed reviews."
-      />
-      <section className="panel directory-panel">
-        <div className="directory-toolbar">
-          <div>
-            <h2>All employees</h2>
-            <p>{filteredEmployees.length} employees</p>
-          </div>
-          <div className="directory-controls">
-            <label className="search-input">
-              <Icon name="search" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search employees"
-                aria-label="Search employees"
-              />
-            </label>
-            <select
-              className="employee-status-filter"
-              aria-label="Filter by status"
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-            >
-              <option value="">All statuses</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
-        </div>
-        {filteredEmployees.length ? (
-          <div className="employee-grid">
-            {filteredEmployees.map((employee) => {
-              const employeeReviews = reviews.filter(
-                (review) => review.employee_id === employee.id,
-              );
-              const average = employeeReviews.length
-                ? employeeReviews.reduce(
-                    (sum, review) => sum + review.average_rating,
-                    0,
-                  ) / employeeReviews.length
-                : null;
-              return (
-                <article className="employee-card" key={employee.id}>
-                  <div className="employee-card-top">
-                    <div className={`avatar avatar-large ${avatarTone(employee.id)}`}>
-                      {initials(employee.name)}
-                    </div>
-                    <StatusBadge status={employee.status} />
-                  </div>
-                  <h3>{employee.name}</h3>
-                  <p className="employee-code">{employee.employee_id}</p>
-                  <p className="employee-department">
-                    {employee.department || "Department not assigned"}
-                  </p>
-                  {employee.email && (
-                    <a
-                      className="employee-email"
-                      href={`mailto:${employee.email}`}
-                    >
-                      {employee.email}
-                    </a>
-                  )}
-                  <div className="employee-card-stats">
-                    <div>
-                      <strong>{average === null ? "—" : average.toFixed(1)}</strong>
-                      <span>Average rating</span>
-                    </div>
-                    <div>
-                      <strong>{employeeReviews.length}</strong>
-                      <span>Reviews</span>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <EmptyState
-            title="No employees found"
-            description="Try another employee name or status."
-          />
+    <section className="panel">
+      <Header title="Employees" />
+      <div className="panel-body">
+        <EmployeeSearch value={search} onChange={setSearch} />
+        <StatusMessage
+          loading={loading}
+          error={error}
+          empty={!loading && !error && filtered.length === 0}
+          emptyText="No employees match your search."
+          onRetry={() => { employees.reload(); reviews.reload() }}
+        />
+        {!loading && !error && filtered.length > 0 && (
+          <>
+            <EmployeeTable employees={visible} reviewsByCode={reviewsByCode} />
+            <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} noun="employees" onChange={setPage} />
+          </>
         )}
-      </section>
-    </>
-  );
+      </div>
+    </section>
+  )
 }
