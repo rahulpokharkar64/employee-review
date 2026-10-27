@@ -1,93 +1,58 @@
-import type { Employee, Review, ReviewCreate, ReviewPeriod } from "./types";
+import { API_BASE_URL, ENDPOINTS } from './config'
+import type { Employee, Review, ReviewCreate, ReviewFilters, ReviewPeriod } from './types'
 
-const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api"
-).replace(/\/$/, "");
-
-type ApiErrorBody = {
-  code?: string;
-  message?: string;
-  detail?: Array<{ msg?: string }>;
-};
-
-export class ApiError extends Error {
-  code: string | undefined;
-
-  constructor(message: string, code?: string) {
-    super(message);
-    this.name = "ApiError";
-    this.code = code;
+export class ApiRequestError extends Error {
+  status: number
+  code?: string
+  constructor(message: string, status = 0, code?: string) {
+    super(message)
+    this.status = status
+    this.code = code
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = new Headers(init?.headers);
-  headers.set("Accept", "application/json");
-  if (init?.body) {
-    headers.set("Content-Type", "application/json");
+// Turns the backend error bodies ({code,message} or FastAPI's {detail:[...]}) into one readable message.
+function readError(body: any, status: number): ApiRequestError {
+  if (body?.message) return new ApiRequestError(body.message, status, body.code)
+  if (Array.isArray(body?.detail)) {
+    const text = body.detail.map((d: any) => `${(d.loc ?? []).slice(1).join('.')}: ${d.msg}`).join('; ')
+    return new ApiRequestError(text, status, 'VALIDATION_ERROR')
   }
+  return new ApiRequestError(`Request failed (HTTP ${status}).`, status)
+}
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers,
-  });
-  const responseText = await response.text();
-  let body: unknown;
-
-  if (responseText) {
-    try {
-      body = JSON.parse(responseText) as unknown;
-    } catch {
-      throw new ApiError("The API returned an invalid response.");
-    }
+async function request<T>(path: string, init?: RequestInit, params?: Record<string, string>): Promise<T> {
+  const query = new URLSearchParams()
+  Object.entries(params ?? {}).forEach(([k, v]) => v && query.set(k, v))
+  const qs = query.toString()
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}${qs ? `?${qs}` : ''}`, {
+      ...init,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  } catch {
+    throw new ApiRequestError(`Cannot reach the API at ${API_BASE_URL}. Is the backend running?`)
   }
-
-  if (!response.ok) {
-    const errorBody =
-      typeof body === "object" && body !== null
-        ? (body as ApiErrorBody)
-        : undefined;
-    const detailMessage = errorBody?.detail
-      ?.map((issue) => issue.msg)
-      .filter((message): message is string => Boolean(message))
-      .join(" ");
-    throw new ApiError(
-      errorBody?.message ??
-        detailMessage ??
-        `The request failed with status ${response.status}.`,
-      errorBody?.code,
-    );
-  }
-
-  return body as T;
+  const body = await response.json().catch(() => null)
+  if (!response.ok) throw readError(body, response.status)
+  return body as T
 }
 
-export function getEmployees(): Promise<Employee[]> {
-  return request<Employee[]>("/employees");
-}
+export const getEmployees = (status?: 'Active' | 'Inactive') =>
+  request<Employee[]>(ENDPOINTS.employees, undefined, { status: status ?? '' })
 
-export function getReviewPeriods(): Promise<ReviewPeriod[]> {
-  return request<ReviewPeriod[]>("/review-periods");
-}
+export const getReviewPeriods = (status?: 'Open' | 'Closed') =>
+  request<ReviewPeriod[]>(ENDPOINTS.reviewPeriods, undefined, { status: status ?? '' })
 
-export function getReviews(
-  employeeCode?: string,
-  periodId?: string,
-): Promise<Review[]> {
-  const query = new URLSearchParams();
-  if (employeeCode) query.set("employee_id", employeeCode);
-  if (periodId) query.set("period_id", periodId);
-  const suffix = query.size ? `?${query.toString()}` : "";
-  return request<Review[]>(`/reviews${suffix}`);
-}
+// employee_code is the code (EMP101); the backend names this query parameter employee_id.
+export const getReviews = (filters: ReviewFilters) =>
+  request<Review[]>(ENDPOINTS.reviews, undefined, {
+    employee_id: filters.employee_code,
+    period_id: filters.period_id,
+  })
 
-export function getReview(id: number): Promise<Review> {
-  return request<Review>(`/reviews/${id}`);
-}
+export const getReview = (id: number) => request<Review>(ENDPOINTS.review(id))
 
-export function createReview(payload: ReviewCreate): Promise<Review> {
-  return request<Review>("/reviews", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
+export const createReview = (payload: ReviewCreate) =>
+  request<Review>(ENDPOINTS.reviews, { method: 'POST', body: JSON.stringify(payload) })

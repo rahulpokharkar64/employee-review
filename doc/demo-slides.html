@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0c1728">
+    <title>Employee Performance Review · Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Segoe UI", Inter, system-ui, sans-serif;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        --ink: #f4f7fc;
+        --muted: #a5b4ca;
+        --line: #34445b;
+        --panel: #17263a;
+        --blue: #9db2ff;
+        --mint: #74dfbd;
+        --gold: #ffd37c;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(ellipse at 12% 8%, #344a71 0, transparent 32rem),
+          radial-gradient(ellipse at 88% 88%, #163f46 0, transparent 30rem),
+          #0c1728;
+      }
+      button, a { font: inherit; }
+      a { color: inherit; }
+      .deck {
+        display: grid;
+        min-height: 100vh;
+        grid-template-rows: auto 1fr auto;
+        gap: 1rem;
+        padding: clamp(1rem, 3vw, 2.5rem);
+      }
+      .deck-header, .deck-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        max-width: 1440px;
+        width: 100%;
+        margin: 0 auto;
+      }
+      .deck-brand {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        color: #e3eaff;
+        font-size: .85rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-decoration: none;
+        text-transform: uppercase;
+      }
+      .brand-mark {
+        display: grid;
+        width: 2.3rem;
+        height: 2.3rem;
+        place-items: center;
+        border: 1px solid #91a8f7;
+        border-radius: .8rem;
+        color: var(--blue);
+        background: #40588b;
+        font-size: 1.15rem;
+      }
+      .deck-header a:last-child {
+        color: var(--muted);
+        font-size: .85rem;
+        text-decoration-color: #607390;
+        text-underline-offset: .2em;
+      }
+      .stage {
+        display: grid;
+        width: min(100%, 1440px);
+        min-height: 0;
+        margin: 0 auto;
+        place-items: center;
+      }
+      .slide {
+        position: relative;
+        display: grid;
+        width: 100%;
+        min-height: min(72vh, 760px);
+        aspect-ratio: 16 / 9;
+        align-content: center;
+        gap: clamp(1rem, 2vw, 2rem);
+        overflow: hidden;
+        padding: clamp(1.5rem, 5vw, 5rem);
+        border: 1px solid #ffffff1c;
+        border-radius: 1.5rem;
+        background:
+          linear-gradient(145deg, #1a2c44f5, #122137f5 60%, #112d39f5),
+          var(--panel);
+        box-shadow: 0 2rem 6rem #0005;
+      }
+      .slide[hidden] { display: none; }
+      .slide::after {
+        position: absolute;
+        right: -8rem;
+        bottom: -11rem;
+        width: 30rem;
+        height: 30rem;
+        border: 1px solid #8ba3d21c;
+        border-radius: 50%;
+        box-shadow: 0 0 0 3rem #8ba3d20a, 0 0 0 6rem #8ba3d207;
+        content: "";
+        pointer-events: none;
+      }
+      .slide-kicker {
+        margin: 0;
+        color: var(--mint);
+        font-size: .78rem;
+        font-weight: 800;
+        letter-spacing: .16em;
+        text-transform: uppercase;
+      }
+      h1, h2, h3, p { margin: 0; }
+      h1, h2, h3 { text-wrap: balance; }
+      h1 {
+        max-width: 950px;
+        font-size: clamp(2.7rem, 7vw, 6.4rem);
+        letter-spacing: -.055em;
+        line-height: .98;
+      }
+      h2 {
+        max-width: 1000px;
+        font-size: clamp(2rem, 4.3vw, 4rem);
+        letter-spacing: -.045em;
+        line-height: 1.05;
+      }
+      h3 { font-size: clamp(1rem, 1.6vw, 1.45rem); }
+      p, li { color: var(--muted); font-size: clamp(.95rem, 1.35vw, 1.2rem); line-height: 1.55; }
+      strong { color: var(--ink); }
+      .lede { max-width: 800px; font-size: clamp(1.1rem, 2vw, 1.65rem); }
+      .cover-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(250px, .7fr);
+        align-items: center;
+        gap: 2rem;
+      }
+      .cover-card, .info-card, .metric, .question-card {
+        border: 1px solid #ffffff1b;
+        border-radius: 1rem;
+        background: #ffffff08;
+      }
+      .cover-card { display: grid; gap: 1rem; padding: 1.5rem; }
+      .cover-card .step { color: var(--gold); font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+      .cover-card strong { font-size: 1.3rem; }
+      .flow {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: stretch;
+        gap: .85rem;
+      }
+      .flow-card {
+        display: grid;
+        align-content: center;
+        gap: .7rem;
+        min-height: 10rem;
+        padding: 1.2rem;
+        border: 1px solid #ffffff20;
+        border-radius: 1rem;
+        background: #ffffff09;
+      }
+      .flow-card .number { color: var(--blue); font-size: .8rem; font-weight: 800; letter-spacing: .12em; }
+      .flow-arrow { display: grid; place-items: center; color: var(--mint); font-size: 2rem; }
+      .split, .two-column {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+      }
+      .info-card { display: grid; align-content: start; gap: .8rem; padding: clamp(1rem, 2vw, 1.5rem); }
+      .info-card h3 { color: var(--blue); }
+      .compact-list { display: grid; gap: .45rem; padding-left: 1.1rem; }
+      .compact-list li { font-size: clamp(.85rem, 1.15vw, 1rem); }
+      .api-list { display: grid; gap: .55rem; }
+      .api-row {
+        display: grid;
+        grid-template-columns: 4.5rem 1fr;
+        gap: .75rem;
+        align-items: center;
+        padding: .65rem .8rem;
+        border: 1px solid #ffffff14;
+        border-radius: .65rem;
+        background: #ffffff06;
+      }
+      code {
+        color: #dce5ff;
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: .92em;
+      }
+      .method { color: var(--mint); font-size: .75rem; font-weight: 900; letter-spacing: .05em; }
+      .diagram {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr auto 1fr;
+        align-items: center;
+        gap: .8rem;
+      }
+      .diagram .info-card { min-height: 11rem; justify-items: start; }
+      .diagram .arrow { color: var(--mint); font-size: 1.8rem; }
+      .id-note {
+        padding: .8rem 1rem;
+        border-left: 3px solid var(--gold);
+        border-radius: .35rem;
+        background: #ffd37c12;
+      }
+      .rule-table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border-radius: .7rem;
+        background: #ffffff08;
+      }
+      .rule-table th, .rule-table td {
+        padding: .8rem 1rem;
+        border-bottom: 1px solid #ffffff17;
+        text-align: left;
+        vertical-align: top;
+      }
+      .rule-table th { color: var(--blue); font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; }
+      .rule-table td { color: var(--muted); font-size: clamp(.85rem, 1.2vw, 1rem); }
+      .rule-table td:first-child { color: var(--ink); font-weight: 700; white-space: nowrap; }
+      .shots {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: center;
+        gap: 1rem;
+      }
+      figure { display: grid; gap: .55rem; min-width: 0; margin: 0; }
+      figure img {
+        display: block;
+        width: 100%;
+        height: min(40vh, 380px);
+        object-fit: contain;
+        border: 1px solid #ffffff30;
+        border-radius: .7rem;
+        background: #0b1422;
+      }
+      figcaption { color: var(--muted); font-size: .85rem; }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .8rem;
+      }
+      .metric { display: grid; gap: .35rem; padding: 1rem; }
+      .metric strong { color: var(--mint); font-size: clamp(1.5rem, 3vw, 2.7rem); letter-spacing: -.04em; }
+      .metric span { color: var(--muted); font-size: .88rem; }
+      .question-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+      .question-card { padding: .9rem 1rem; color: #dce5f6; font-size: clamp(.85rem, 1.15vw, 1rem); }
+      .warning {
+        padding: .8rem 1rem;
+        border: 1px solid #ffd37c55;
+        border-radius: .7rem;
+        color: #ffe8b7;
+        background: #ffd37c10;
+        font-size: .95rem;
+      }
+      .deck-footer { color: var(--muted); }
+      .controls { display: flex; align-items: center; gap: .65rem; }
+      .controls button {
+        display: grid;
+        width: 2.65rem;
+        height: 2.65rem;
+        place-items: center;
+        border: 1px solid #ffffff2c;
+        border-radius: .75rem;
+        color: var(--ink);
+        background: #ffffff0c;
+        cursor: pointer;
+      }
+      .controls button:hover:not(:disabled), .controls button:focus-visible { border-color: var(--blue); background: #ffffff18; }
+      .controls button:disabled { cursor: not-allowed; opacity: .4; }
+      button:focus-visible, a:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+      .slide-count { min-width: 4.5rem; text-align: center; font-variant-numeric: tabular-nums; }
+      .progress-track {
+        position: fixed;
+        top: 0;
+        right: 0;
+        left: 0;
+        z-index: 3;
+        height: 4px;
+        background: #ffffff18;
+      }
+      .progress-bar { width: 12.5%; height: 100%; background: linear-gradient(90deg, var(--blue), var(--mint)); transition: width .2s ease; }
+      .shortcut { font-size: .78rem; }
+      @media (max-width: 850px) {
+        .slide { min-height: 74vh; aspect-ratio: auto; overflow: auto; }
+        .cover-layout, .split, .two-column, .shots { grid-template-columns: 1fr; }
+        .cover-card { display: none; }
+        .diagram { grid-template-columns: 1fr; }
+        .diagram .arrow { transform: rotate(90deg); justify-self: center; }
+        .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        figure img { height: 26vh; }
+      }
+      @media (max-width: 560px) {
+        .deck { padding: .7rem; }
+        .deck-header a:last-child, .shortcut { display: none; }
+        .slide { min-height: 78vh; padding: 1.2rem; border-radius: 1rem; }
+        .flow { grid-template-columns: 1fr; }
+        .flow-card { min-height: auto; }
+        .flow-arrow { transform: rotate(90deg); }
+        .question-grid, .metrics { grid-template-columns: 1fr 1fr; }
+        .rule-table th, .rule-table td { padding: .55rem; }
+        .rule-table td:first-child { white-space: normal; }
+      }
+      @media print {
+        :root { color-scheme: light; }
+        body { color: #162238; background: white; }
+        .deck { display: block; padding: 0; }
+        .deck-header, .deck-footer, .progress-track { display: none; }
+        .stage { display: block; width: auto; }
+        .slide, .slide[hidden] {
+          display: grid;
+          width: 100%;
+          min-height: 100vh;
+          aspect-ratio: 16 / 9;
+          break-after: page;
+          color: #162238;
+          background: white;
+          box-shadow: none;
+        }
+        p, li, figcaption, .metric span { color: #41516a; }
+        .info-card, .metric, .question-card, .flow-card { border-color: #cbd5e1; background: #f5f7fb; }
+        .flow-card strong, .question-card { color: #162238; }
+        .rule-table { background: #f5f7fb; }
+        .rule-table td { color: #41516a; }
+        .warning { color: #704b00; background: #fff8e8; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="progress-track" aria-hidden="true"><div class="progress-bar" id="progress"></div></div>
+    <div class="deck">
+      <header class="deck-header">
+        <a class="deck-brand" href="https://github.com/rahulpokharkar64/employee-review">
+          <span class="brand-mark" aria-hidden="true">✳</span>
+          PeoplePulse · Demo
+        </a>
+        <a href="./readiness-evidence.md">Open readiness evidence ↗</a>
+      </header>
+
+      <main class="stage" id="stage" aria-live="polite">
+        <section class="slide" data-title="The outcome" aria-labelledby="title-1">
+          <div class="cover-layout">
+            <div>
+              <p class="slide-kicker">Employee performance review · team walkthrough</p>
+              <h1 id="title-1">From manager feedback to an HR-ready record.</h1>
+              <p class="lede">A small, reliable workflow with clear rules, a server-owned average, and a persisted review register.</p>
+            </div>
+            <aside class="cover-card">
+              <span class="step">Live proof</span>
+              <strong>POST → PostgreSQL → GET</strong>
+              <p>Review 25 · EMP102 · H2 2026</p>
+              <p>Ratings 4 / 5 / 4 · API average <strong>4.33</strong></p>
+            </aside>
+          </div>
+          <div class="flow" aria-label="Review workflow">
+            <div class="flow-card"><span class="number">01 · MANAGER</span><strong>Submit a review</strong><p>Choose employee and open cycle; add ratings and comments.</p></div>
+            <div class="flow-arrow" aria-hidden="true">→</div>
+            <div class="flow-card"><span class="number">02 · API + DATABASE</span><strong>Validate and persist</strong><p>Enforce business rules and calculate the average.</p></div>
+            <div class="flow-arrow" aria-hidden="true">→</div>
+            <div class="flow-card"><span class="number">03 · HR</span><strong>Review the register</strong><p>Filter saved reviews and open read-only details.</p></div>
+          </div>
+        </section>
+
+        <section class="slide" data-title="Mandatory scope" aria-labelledby="title-2" hidden>
+          <p class="slide-kicker">01 · Scope</p>
+          <h2 id="title-2">Two screens. Four core APIs.</h2>
+          <div class="split">
+            <article class="info-card">
+              <h3>Mandatory screens</h3>
+              <ol class="compact-list">
+                <li><strong>Submit review</strong> — active employee, Open period, three 1–5 ratings, required comments.</li>
+                <li><strong>Review register</strong> — employee, period, ratings, API average, status.</li>
+              </ol>
+            </article>
+            <article class="info-card">
+              <h3>Required API contract</h3>
+              <div class="api-list">
+                <div class="api-row"><span class="method">GET</span><code>/api/employees</code></div>
+                <div class="api-row"><span class="method">GET</span><code>/api/review-periods</code></div>
+                <div class="api-row"><span class="method">GET</span><code>/api/reviews</code></div>
+                <div class="api-row"><span class="method">POST</span><code>/api/reviews</code></div>
+              </div>
+            </article>
+          </div>
+          <p class="id-note"><strong>Identifier detail:</strong> create uses numeric employee/period IDs; review filters use employee code (e.g. EMP101) and numeric period ID.</p>
+        </section>
+
+        <section class="slide" data-title="Architecture" aria-labelledby="title-3" hidden>
+          <p class="slide-kicker">02 · Architecture</p>
+          <h2 id="title-3">Each layer has one job.</h2>
+          <div class="diagram" aria-label="Application architecture">
+            <article class="info-card"><h3>React + TypeScript</h3><p>Routes, form state, reusable components, register filters.</p></article>
+            <span class="arrow" aria-hidden="true">→</span>
+            <article class="info-card"><h3>FastAPI</h3><p>Request validation, duplicate/period rules, calculated average.</p></article>
+            <span class="arrow" aria-hidden="true">→</span>
+            <article class="info-card"><h3>PostgreSQL</h3><p>Employees, review periods, performance reviews, unique pair constraint.</p></article>
+          </div>
+          <p class="id-note">The API response is the source of truth. The UI renders `average_rating`; it does not submit or invent that value.</p>
+        </section>
+
+        <section class="slide" data-title="Business rules" aria-labelledby="title-4" hidden>
+          <p class="slide-kicker">03 · Guardrails</p>
+          <h2 id="title-4">Clear rules make the register trustworthy.</h2>
+          <table class="rule-table">
+            <thead><tr><th>Rule</th><th>Behavior</th><th>Evidence</th></tr></thead>
+            <tbody>
+              <tr><td>Ratings</td><td>Three integer scores, each from 1 to 5; comments required.</td><td>HTTP 422 on invalid body</td></tr>
+              <tr><td>Open period</td><td>Closed cycles reject a submission.</td><td>HTTP 400 · `REVIEW_PERIOD_CLOSED`</td></tr>
+              <tr><td>One review per pair</td><td>Employee + period is unique in the API and database.</td><td>HTTP 409 · `DUPLICATE_REVIEW`</td></tr>
+              <tr><td>Average</td><td>Server computes and persists a two-decimal average.</td><td>Review 25 · 4.33</td></tr>
+            </tbody>
+          </table>
+          <p>Failed submissions retain the manager’s entered values and display field-aware messages.</p>
+        </section>
+
+        <section class="slide" data-title="Live demo" aria-labelledby="title-5" hidden>
+          <p class="slide-kicker">04 · Product screens</p>
+          <h2 id="title-5">The form and the HR register.</h2>
+          <div class="shots">
+            <figure>
+              <img src="./screenshots/01-review-form.png" alt="Review form with employee, period, ratings and comments filled as an unsaved draft">
+              <figcaption>Submission form · draft preview; not a saved record.</figcaption>
+            </figure>
+            <figure>
+              <img src="./screenshots/02-review-register.png" alt="Live review table showing employee, review period, scores, server average, status and filters">
+              <figcaption>Review register · live API data after submission and reload.</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="slide" data-title="Verified results" aria-labelledby="title-6" hidden>
+          <p class="slide-kicker">05 · Evidence · 2026-10-26</p>
+          <h2 id="title-6">Verified against the running local stack.</h2>
+          <div class="metrics">
+            <div class="metric"><strong>22</strong><span>employees from GET</span></div>
+            <div class="metric"><strong>4</strong><span>review periods from GET</span></div>
+            <div class="metric"><strong>25</strong><span>saved reviews from GET</span></div>
+            <div class="metric"><strong>4.33</strong><span>server average on review 25</span></div>
+          </div>
+          <div class="two-column">
+            <article class="info-card"><h3>Live API</h3><p>GETs returned 200 · POST returned 201 · duplicate returned 409 · invalid input returned 422 · Closed period returned 400.</p></article>
+            <article class="info-card"><h3>Quality checks</h3><p>35 backend tests passed. Frontend TypeScript/build, lint, reload persistence, and input-preserving error paths verified.</p></article>
+          </div>
+        </section>
+
+        <section class="slide" data-title="Discovery and boundaries" aria-labelledby="title-7" hidden>
+          <p class="slide-kicker">06 · Confirm with the client</p>
+          <h2 id="title-7">The assumptions to validate next.</h2>
+          <div class="question-grid">
+            <div class="question-card">Who may submit and view performance reviews?</div>
+            <div class="question-card">Who opens, closes, and reopens review cycles?</div>
+            <div class="question-card">Is uniqueness per employee/period or per manager too?</div>
+            <div class="question-card">What are retention and visibility rules for comments?</div>
+          </div>
+          <p class="warning"><strong>Demo boundary:</strong> authentication and authorization are not implemented. Use trusted demo data only; confirm these decisions before production planning.</p>
+        </section>
+
+        <section class="slide" data-title="Next step" aria-labelledby="title-8" hidden>
+          <p class="slide-kicker">07 · Wrap-up</p>
+          <h2 id="title-8">A verified workflow, ready for team review.</h2>
+          <p class="lede">Manager input is validated, persisted once, and visible to HR with the server’s calculated result.</p>
+          <div class="two-column">
+            <article class="info-card"><h3>Open the project</h3><p><a href="https://github.com/rahulpokharkar64/employee-review">github.com/rahulpokharkar64/employee-review</a></p></article>
+            <article class="info-card"><h3>Continue with</h3><p>Confirm discovery assumptions, schedule the team demo, and plan auth/privacy requirements before any production exposure.</p></article>
+          </div>
+          <p class="slide-kicker">Thank you · PeoplePulse Employee Reviews</p>
+        </section>
+      </main>
+
+      <footer class="deck-footer">
+        <span class="shortcut">Navigate with ← →, Page Up/Down, Home/End, or the controls.</span>
+        <div class="controls" aria-label="Slide controls">
+          <button id="previous" type="button" aria-label="Previous slide" title="Previous slide">←</button>
+          <span class="slide-count" id="slide-count" aria-live="polite">1 / 8</span>
+          <button id="next" type="button" aria-label="Next slide" title="Next slide">→</button>
+        </div>
+      </footer>
+    </div>
+    <script>
+      (() => {
+        const slides = Array.from(document.querySelectorAll(".slide"));
+        const progress = document.getElementById("progress");
+        const count = document.getElementById("slide-count");
+        const previous = document.getElementById("previous");
+        const next = document.getElementById("next");
+        let current = 0;
+
+        function showSlide(index) {
+          current = Math.max(0, Math.min(index, slides.length - 1));
+          slides.forEach((slide, slideIndex) => {
+            const isCurrent = slideIndex === current;
+            slide.hidden = !isCurrent;
+            slide.setAttribute("aria-hidden", String(!isCurrent));
+          });
+          count.textContent = `${current + 1} / ${slides.length}`;
+          progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+          previous.disabled = current === 0;
+          next.disabled = current === slides.length - 1;
+          document.title = `${slides[current].dataset.title} · Employee Review Demo`;
+        }
+
+        previous.addEventListener("click", () => showSlide(current - 1));
+        next.addEventListener("click", () => showSlide(current + 1));
+        document.addEventListener("keydown", (event) => {
+          if (["ArrowRight", "PageDown", " "].includes(event.key)) {
+            event.preventDefault();
+            showSlide(current + 1);
+          } else if (["ArrowLeft", "PageUp"].includes(event.key)) {
+            event.preventDefault();
+            showSlide(current - 1);
+          } else if (event.key === "Home") {
+            showSlide(0);
+          } else if (event.key === "End") {
+            showSlide(slides.length - 1);
+          }
+        });
+        showSlide(0);
+      })();
+    </script>
+  </body>
+</html>

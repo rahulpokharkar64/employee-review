@@ -90,7 +90,9 @@ CREATE TABLE performance_reviews (
     CONSTRAINT fk_employee
         FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
     CONSTRAINT fk_period
-        FOREIGN KEY (period_id) REFERENCES review_periods(id) ON DELETE CASCADE
+        FOREIGN KEY (period_id) REFERENCES review_periods(id) ON DELETE CASCADE,
+    CONSTRAINT uq_performance_reviews_employee_period
+        UNIQUE (employee_id, period_id)
 );
 
 INSERT INTO performance_reviews

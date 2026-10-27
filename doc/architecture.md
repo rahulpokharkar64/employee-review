@@ -42,7 +42,13 @@ Browser
   |
   v
 React application (frontend/src)
-  |-- App.tsx: persistent shell, routes, overview, directory, form, and reviews
+  |-- App.tsx: shared data loading, routes, API state, and navigation
+  |-- components/AppShell.tsx: persistent shell and navigation
+  |-- components/OverviewPage.tsx: summary dashboard
+  |-- components/EmployeesPage.tsx: employee directory
+  |-- components/ReviewPages.tsx: submit, register, and detail screens
+  |-- components/shared.tsx: reusable presentational components
+  |-- components/utils.ts: formatting, error, and avatar helpers
   |-- api.ts: typed Fetch API client and API error handling
   |-- types.ts: employee, review period, and review contracts
   |-- styles.css: responsive presentation
@@ -75,10 +81,10 @@ state, and dashboard summaries calculated from API responses.
 
 The review-list endpoint expects `employee_id` to be the displayed employee
 code (for example, `EMP101`) and `period_id` to be the numeric review-period
-database ID. Review creation instead expects the numeric employee and period
+database ID. Review creation instead expects numeric employee and period
 database IDs. The UI sends only those IDs, three ratings, and comments on
-creation. The API computes `average_rating`; the UI's average preview is
-informational only.
+creation. The API computes `average_rating`; the UI displays the returned
+server-calculated value in the register and details screen.
 
 ## Dashboard Behavior
 
@@ -89,11 +95,17 @@ informational only.
 - Submit reviews only for Active employees and Open periods, and show API
   validation, duplicate, and closed-period errors without hiding failures.
 - Refresh the review data after a successful submission.
+- Display the server-calculated average at two-decimal precision in the review
+  register and detail view.
 - Display explicit loading, empty, and API/network error states.
 
 The current API contract returns all matching review rows without pagination,
 so the Review List paginates the loaded results in the browser. For larger
 organizations, server-side pagination would be a separate API enhancement.
+
+The schema setup script enforces a unique employee/period pair. Existing
+databases can apply the guarded migration at
+[`../database/migrations/001_unique_employee_review_period.sql`](../database/migrations/001_unique_employee_review_period.sql).
 
 ## Error and State Handling
 
