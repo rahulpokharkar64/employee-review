@@ -65,12 +65,12 @@ def test_invalid_input_is_422(client, change):
     assert client.post("/api/reviews", json={**BODY, **change}).status_code == 422
 
 def test_health_ok(client, monkeypatch):
-    monkeypatch.setattr(service, "check_database", lambda: True)
+    monkeypatch.setattr(main, "check_database", lambda: True)
     response = client.get("/api/health")
     assert response.status_code == 200 and response.json() == {"status": "ok", "database": "up"}
 
 def test_health_database_down_is_503(client, monkeypatch):
-    monkeypatch.setattr(service, "check_database", lambda: False)
+    monkeypatch.setattr(main, "check_database", lambda: False)
     response = client.get("/api/health")
     assert response.status_code == 503 and response.json()["database"] == "down"
 
@@ -96,13 +96,13 @@ def test_list_review_periods_filter(client, monkeypatch):
 
 def test_list_reviews_filters_and_status_label(client, monkeypatch):
     seen = {}
-    monkeypatch.setattr(service, "list_reviews", lambda **kw: seen.update(kw) or [REVIEW_ROW])
+    monkeypatch.setattr(service, "fetch_reviews", lambda **kw: seen.update(kw) or [REVIEW_ROW])
     response = client.get("/api/reviews?employee_id=EMP101&period_id=3")
     assert seen == {"employee_code": "EMP101", "period_id": 3}
     assert response.json()[0]["status"] == "Completed"
 
 def test_list_reviews_empty_is_empty_array(client, monkeypatch):
-    monkeypatch.setattr(service, "list_reviews", lambda **kw: [])
+    monkeypatch.setattr(service, "fetch_reviews", lambda **kw: [])
     assert client.get("/api/reviews").json() == []
 
 @pytest.mark.parametrize("query", ["period_id=0", "period_id=abc", "employee_id="])

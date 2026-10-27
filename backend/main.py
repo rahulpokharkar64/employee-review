@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from errors import ApiError
 from models import Employee, ErrorResponse, Review, ReviewCreate, ReviewPeriod
+from repository import check_database
 import service
 
 app = FastAPI(
@@ -34,7 +35,7 @@ api = APIRouter(prefix="/api")
 @api.get("/health")
 def health(response: Response):
     """Connectivity check. 200 when the API and the database are reachable, 503 when the database is not."""
-    if service.database_is_up():
+    if check_database():
         return {"status": "ok", "database": "up"}
     response.status_code = 503
     return {"status": "unavailable", "database": "down"}
@@ -70,7 +71,7 @@ def reviews(
     period_id: Optional[int] = Query(default=None, ge=1, description="review_periods.id (numeric DB key)"),
 ):
     """Reviews for the register, newest first, optionally filtered by employee code and/or period (AND). An empty result is []."""
-    return service.get_reviews(employee_code=employee_id, period_id=period_id)
+    return service.list_reviews(employee_code=employee_id, period_id=period_id)
 
 @api.get("/reviews/{id}", response_model=Review, responses={404: {"model": ErrorResponse}})
 def get_review(id: int = Path(ge=1, description="performance_reviews.id")):
