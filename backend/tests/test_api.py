@@ -40,6 +40,34 @@ def test_create_returns_enriched_review(client):
     assert body["average_rating"] == 4.33
     assert (body["employee_code"], body["employee_name"], body["period_name"], body["status"]) == ("EMP101", "John Smith", "H1 2026", "Completed")
 
+def test_created_review_is_returned_by_register_get(client, monkeypatch):
+    saved = []
+
+    def insert(data, average):
+        review = {
+            "id": 301,
+            **data,
+            "average_rating": average,
+            "created_at": datetime(2026, 1, 15, 10, 30),
+            "employee_code": "EMP101",
+            "employee_name": "John Smith",
+            "period_name": "H1 2026",
+        }
+        saved.append(review)
+        return review
+
+    monkeypatch.setattr(service, "insert_review", insert)
+    monkeypatch.setattr(service, "fetch_reviews", lambda **_: saved)
+
+    created = client.post("/api/reviews", json=BODY)
+    reloaded = client.get("/api/reviews")
+
+    assert created.status_code == 201
+    assert reloaded.status_code == 200
+    assert len(reloaded.json()) == 1
+    assert reloaded.json()[0]["id"] == created.json()["id"]
+    assert reloaded.json()[0]["average_rating"] == 4.33
+
 def test_duplicate_is_409_with_code(client):
     client.post("/api/reviews", json=BODY)
     response = client.post("/api/reviews", json=BODY)

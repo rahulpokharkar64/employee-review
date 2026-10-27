@@ -7,7 +7,16 @@ const API_BASE_URL = (
 type ApiErrorBody = {
   code?: string;
   message?: string;
-  detail?: Array<{ msg?: string }>;
+  detail?: Array<{ loc?: Array<string | number>; msg?: string }>;
+};
+
+const validationFieldLabels: Record<string, string> = {
+  employee_id: "Employee",
+  period_id: "Review period",
+  quality_rating: "Quality rating",
+  delivery_rating: "Delivery rating",
+  teamwork_rating: "Teamwork rating",
+  comments: "Comments",
 };
 
 export class ApiError extends Error {
@@ -48,12 +57,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         ? (body as ApiErrorBody)
         : undefined;
     const detailMessage = errorBody?.detail
-      ?.map((issue) => issue.msg)
+      ?.map((issue) => {
+        if (!issue.msg) return undefined;
+        const field = issue.loc?.[issue.loc.length - 1];
+        if (typeof field !== "string") return issue.msg;
+        return `${validationFieldLabels[field] ?? field}: ${issue.msg}`;
+      })
       .filter((message): message is string => Boolean(message))
       .join(" ");
     throw new ApiError(
       errorBody?.message ??
-        detailMessage ??
+        (detailMessage ? `Check the review details. ${detailMessage}` : undefined) ??
         `The request failed with status ${response.status}.`,
       errorBody?.code,
     );

@@ -8,8 +8,8 @@ register, employee directory, review details, and review submission.
 
 ```text
 backend/       FastAPI API and backend tests
-database/      PostgreSQL table definitions and sample data
-doc/           Requirements, API contract, and architecture
+database/      PostgreSQL schema, sample data, and migrations
+doc/           Discovery, API contract, architecture, verification, and demo
 frontend/      React, TypeScript, and Vite dashboard
 ```
 
@@ -18,6 +18,8 @@ request flow, API responsibilities, and current limitations. The API contract
 and screen/database requirements are available in
 [`doc/employee-performance-review-openapi.json`](doc/employee-performance-review-openapi.json)
 and [`doc/dashboard.jpeg`](doc/dashboard.jpeg).
+The [discovery and scope](doc/discovery-and-scope.md), [readiness evidence](doc/readiness-evidence.md),
+[demo runbook](doc/demo-runbook.md), and [slide deck](doc/demo-slides.html) prepare the team for a live walkthrough.
 
 ## Requirements
 
@@ -27,16 +29,27 @@ and [`doc/dashboard.jpeg`](doc/dashboard.jpeg).
 
 ## Configure PostgreSQL
 
-Create an empty PostgreSQL database, then run the single schema and sample data
-script from the repository root:
+For a new, empty PostgreSQL database, run the schema and sample-data script from
+the repository root:
 
 ```powershell
 psql -d employee_details -f .\database\CreateQueries.sql
 ```
 
-The script creates all three tables and inserts sample records. It does not
-create the database itself. Run it once against a fresh/empty database; it is
-not a migration and is not safe to run repeatedly.
+The script creates all three tables, enforces one review per employee/period,
+and inserts sample records. It does not create the database itself. Run it once
+against a fresh/empty database; it is not safe to run repeatedly.
+
+For a database created before the uniqueness constraint was added, back it up
+and apply the guarded migration instead:
+
+```powershell
+psql -d employee_details -f .\database\migrations\001_unique_employee_review_period.sql
+```
+
+The migration is repeatable and stops without changing the schema if duplicate
+employee/period pairs already exist. Resolve any reported duplicates before
+retrying it.
 
 ## Run the backend
 
@@ -125,6 +138,14 @@ Ratings must be integers from 1 to 5 and comments are required. The API
 calculates the average rating, only accepts submissions for open periods, and
 prevents duplicate reviews for the same employee and period. See the Swagger
 documentation or the OpenAPI file for request and response details.
+
+## Demo preparation
+
+Follow [the runbook](doc/demo-runbook.md) for startup, API checks, the two-minute
+walkthrough, and cleanup guidance. Evidence status and any environment-dependent
+checks are recorded in [readiness evidence](doc/readiness-evidence.md); the
+slide deck is available as [HTML](doc/demo-slides.html) and
+[Markdown source](doc/demo-slides.md).
 
 ## Current limitations
 

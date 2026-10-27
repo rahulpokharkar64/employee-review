@@ -3,12 +3,12 @@
   "info": {
     "title": "Employee Performance Review Management System API",
     "version": "1.0.0",
-    "description": "Proposed training API contract based on the Testleaf Employee Performance Review requirements/design snapshot. This document describes endpoints to implement; it is not evidence that a live backend already exists. Core classroom workflow: list employees and review periods, submit a review, and list saved reviews. Review detail is an optional extension. Annual and half-yearly cycles are configured as records in review_periods. Ratings must be 1 through 5; comments are mandatory; server calculates average_rating = ROUND((quality_rating + delivery_rating + teamwork_rating) / 3, 2). Each employee can have at most one review per period; only Open review periods accept new submissions. The displayed Completed status is derived for saved reviews; no workflow status column is required by the pictured database design."
+    "description": "Implemented FastAPI contract for this repository. Core workflow: list employees and review periods, submit a review, and list saved reviews. Review detail is an optional extension. Ratings must be 1 through 5; comments are mandatory; the server calculates average_rating = ROUND((quality_rating + delivery_rating + teamwork_rating) / 3, 2). Each employee can have at most one review per period; only Open review periods accept new submissions. The displayed Completed status is derived for saved reviews; no workflow status column is required. Examples illustrate response shapes; database IDs correspond to the sample schema in database/CreateQueries.sql."
   },
   "servers": [
     {
       "url": "http://localhost:8000/api",
-      "description": "Local classroom FastAPI server (proposed)"
+      "description": "Local FastAPI server"
     }
   ],
   "tags": [
@@ -64,19 +64,19 @@
                 },
                 "example": [
                   {
-                    "id": 1,
+                    "id": 4,
                     "employee_id": "EMP101",
-                    "name": "John Smith",
+                    "name": "Alice Smith",
                     "department": "Engineering",
                     "email": "john.smith@example.com",
                     "status": "Active"
                   },
                   {
-                    "id": 2,
+                    "id": 3,
                     "employee_id": "EMP102",
-                    "name": "Sarah Johnson",
-                    "department": "Operations",
-                    "email": "sarah.johnson@example.com",
+                    "name": "Bob Jones",
+                    "department": "Marketing",
+                    "email": "bob.jones@example.com",
                     "status": "Active"
                   }
                 ]
@@ -139,17 +139,17 @@
                 "example": [
                   {
                     "id": 1,
-                    "name": "H2 2026 (Jul–Dec)",
+                    "name": "H2 2026",
                     "start_date": "2026-07-01",
                     "end_date": "2026-12-31",
                     "status": "Open"
                   },
                   {
                     "id": 2,
-                    "name": "H1 2026 (Jan–Jun)",
+                    "name": "H1 2026",
                     "start_date": "2026-01-01",
                     "end_date": "2026-06-30",
-                    "status": "Closed"
+                    "status": "Open"
                   }
                 ]
               }
@@ -178,7 +178,7 @@
           "Mandatory - Reviews"
         ],
         "summary": "List submitted performance reviews",
-        "description": "Return reviews for the HR review register; optionally filter by the numeric employee primary key and review period primary key. An empty result is [].",
+        "description": "Return reviews for the HR review register; optionally filter by employee business code (case-insensitive) and numeric review period primary key. An empty result is [].",
         "operationId": "listReviews",
         "x-classroom-scope": "mandatory",
         "parameters": [
@@ -186,12 +186,13 @@
             "name": "employee_id",
             "in": "query",
             "required": false,
-            "description": "employees.id (numeric DB key), not the EMP101-style code",
+            "description": "Employee business code from employees.employee_id, e.g. EMP101 (case-insensitive)",
             "schema": {
-              "type": "integer",
-              "minimum": 1
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 20
             },
-            "example": 1
+            "example": "EMP101"
           },
           {
             "name": "period_id",
@@ -221,9 +222,9 @@
                     "id": 101,
                     "employee_id": 1,
                     "employee_code": "EMP101",
-                    "employee_name": "John Smith",
-                    "period_id": 1,
-                    "period_name": "H2 2026 (Jul–Dec)",
+                    "employee_name": "Alice Smith",
+                    "period_id": 4,
+                    "period_name": "H2 2026",
                     "quality_rating": 4,
                     "delivery_rating": 5,
                     "teamwork_rating": 4,
@@ -236,9 +237,9 @@
                     "id": 102,
                     "employee_id": 2,
                     "employee_code": "EMP102",
-                    "employee_name": "Sarah Johnson",
-                    "period_id": 2,
-                    "period_name": "H1 2026 (Jan–Jun)",
+                    "employee_name": "Bob Jones",
+                    "period_id": 3,
+                    "period_name": "H1 2026",
                     "quality_rating": 3,
                     "delivery_rating": 4,
                     "teamwork_rating": 4,
@@ -265,8 +266,8 @@
                         "query",
                         "employee_id"
                       ],
-                      "msg": "Input should be a valid integer",
-                      "type": "int_parsing"
+                      "msg": "String should have at least 1 character",
+                      "type": "string_too_short"
                     }
                   ]
                 }
@@ -292,8 +293,8 @@
                 "$ref": "#/components/schemas/ReviewCreate"
               },
               "example": {
-                "employee_id": 1,
-                "period_id": 1,
+                "employee_id": 3,
+                "period_id": 4,
                 "quality_rating": 4,
                 "delivery_rating": 5,
                 "teamwork_rating": 4,
@@ -312,11 +313,11 @@
                 },
                 "example": {
                   "id": 101,
-                  "employee_id": 1,
-                  "employee_code": "EMP101",
-                  "employee_name": "John Smith",
-                  "period_id": 1,
-                  "period_name": "H2 2026 (Jul–Dec)",
+                  "employee_id": 3,
+                  "employee_code": "EMP103",
+                  "employee_name": "Charlie Brown",
+                  "period_id": 4,
+                  "period_name": "H2 2026",
                   "quality_rating": 4,
                   "delivery_rating": 5,
                   "teamwork_rating": 4,
@@ -429,9 +430,9 @@
                   "id": 101,
                   "employee_id": 1,
                   "employee_code": "EMP101",
-                  "employee_name": "John Smith",
-                  "period_id": 1,
-                  "period_name": "H2 2026 (Jul–Dec)",
+                  "employee_name": "Alice Smith",
+                  "period_id": 4,
+                  "period_name": "H2 2026",
                   "quality_rating": 4,
                   "delivery_rating": 5,
                   "teamwork_rating": 4,
@@ -510,7 +511,7 @@
           "name": {
             "type": "string",
             "maxLength": 100,
-            "example": "John Smith"
+            "example": "Alice Smith"
           },
           "department": {
             "type": "string",
@@ -523,7 +524,7 @@
             "format": "email",
             "maxLength": 100,
             "nullable": true,
-            "example": "john.smith@example.com"
+            "example": "alice.smith@example.com"
           },
           "status": {
             "type": "string",
@@ -551,12 +552,12 @@
           "id": {
             "type": "integer",
             "minimum": 1,
-            "example": 1
+            "example": 4
           },
           "name": {
             "type": "string",
             "maxLength": 50,
-            "example": "H2 2026 (Jul–Dec)"
+            "example": "H2 2026"
           },
           "start_date": {
             "type": "string",
@@ -597,13 +598,13 @@
             "type": "integer",
             "minimum": 1,
             "description": "Foreign key to employees.id, NOT the employee code",
-            "example": 1
+            "example": 3
           },
           "period_id": {
             "type": "integer",
             "minimum": 1,
             "description": "Foreign key to review_periods.id",
-            "example": 1
+            "example": 4
           },
           "quality_rating": {
             "type": "integer",
@@ -626,6 +627,7 @@
           "comments": {
             "type": "string",
             "minLength": 1,
+            "maxLength": 2000,
             "pattern": "\\S",
             "description": "Required, non-whitespace manager feedback",
             "example": "Strong ownership and collaboration throughout the review period."
@@ -669,17 +671,17 @@
           },
           "employee_name": {
             "type": "string",
-            "example": "John Smith",
+            "example": "Alice Smith",
             "readOnly": true
           },
           "period_id": {
             "type": "integer",
             "minimum": 1,
-            "example": 1
+            "example": 4
           },
           "period_name": {
             "type": "string",
-            "example": "H2 2026 (Jul–Dec)",
+            "example": "H2 2026",
             "readOnly": true
           },
           "quality_rating": {
@@ -825,7 +827,7 @@
       "delivery_rating": "INTEGER NOT NULL CHECK (delivery_rating BETWEEN 1 AND 5)",
       "teamwork_rating": "INTEGER NOT NULL CHECK (teamwork_rating BETWEEN 1 AND 5)",
       "average_rating": "NUMERIC(3,2) NOT NULL",
-      "comments": "TEXT NOT NULL",
+      "comments": "TEXT NULL; new API submissions require nonblank text (maximum 2,000 characters); legacy NULL is returned as an empty string",
       "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
       "uniqueness": "UNIQUE(employee_id, period_id)"
     }

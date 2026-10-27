@@ -33,9 +33,10 @@ The server sets `id`, `average_rating = (q + d + t) / 3` (2 decimals), `created_
 | 422 | FastAPI `{"detail":[...]}` | Rating outside 1-5, blank comments, unknown or wrongly typed fields |
 | 500 | `SERVER_ERROR` | Unexpected error |
 
-## Notes
-The one-review-per-period rule is enforced in the insert (advisory lock + `WHERE NOT EXISTS`), because the spec's table has no unique constraint.
-Adding `UNIQUE (employee_id, period_id)` to `performance_reviews` would add a database-level backstop; it is optional.
+## Duplicate protection
+The one-review-per-period rule is enforced atomically in the insert (transaction-level advisory lock + `WHERE NOT EXISTS`) and by the database constraint `uq_performance_reviews_employee_period`.
+
+Fresh databases receive the constraint from `../database/CreateQueries.sql`. Apply the guarded migration `../database/migrations/001_unique_employee_review_period.sql` to existing databases after backing them up. The migration stops if duplicate pairs already exist.
 
 ## Run
 ```bash
